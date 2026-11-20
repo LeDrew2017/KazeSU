@@ -168,6 +168,27 @@ add `obj-$(CONFIG_KSU) += kernelsu/` to `drivers/Makefile`, and source
 | `Manual Hook` | Most compatible; supports Linux kernels 3.4–6.18. |
 | `SuSFS Inline Hook` | From [SuSFS](https://gitlab.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project. |
 
+SUSFS can also run as an addon with de-inlined filesystem patches, following
+KernelSU-Next's `legacy-susfs-v2` integration. Enable `CONFIG_KSU_SUSFS=y`
+alongside `CONFIG_KSU_TRACEPOINT_HOOK=y` or
+`CONFIG_KSU_TAMPER_SYSCALL_TABLE=y`; leave
+`CONFIG_KSU_SUSFS_INLINE_HOOK` disabled. The existing GKI2 restrictions of
+these hook methods still apply. Manual mode can use the addon with matching
+manual KernelSU hooks.
+
+The de-inlined addon includes SUSFS's unmount list
+(`CONFIG_KSU_SUSFS_TRY_UMOUNT`, enabled by default) and optional memfd hiding
+(`CONFIG_KSU_SUSFS_SUS_MEMFD`, disabled by default), matching the reference.
+It still requires the kernel-side SUSFS patches and matching headers. Remove
+SUSFS's inline KernelSU callbacks from the kernel when using dynamic hooks,
+so each operation is handled once. The standalone `susfs_guard_lkm` is a
+separate implementation and must not be loaded alongside built-in SUSFS.
+
+For existing inline-patched kernels, keep `CONFIG_KSU_SUSFS=y` and select
+`CONFIG_KSU_SUSFS_INLINE_HOOK=y`. An old config enabling only `KSU_SUSFS`
+keeps inline mode as its default. SUSFS-disabled configurations retain their
+existing hook behavior.
+
 ## Build from source
 
 Releases are built by CI (`.github/workflows/`) and signed with the project

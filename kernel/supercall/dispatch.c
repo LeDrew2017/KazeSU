@@ -11,6 +11,7 @@
 #include <linux/version.h>
 #ifdef CONFIG_KSU_SUSFS
 #include <linux/susfs_def.h>
+#include <linux/susfs.h>
 #endif
 
 #include <linux/thread_info.h>
@@ -597,7 +598,7 @@ static int do_manage_mark(void __user *arg)
 
     switch (cmd.operation) {
     case KSU_MARK_GET: {
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
+#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) && !defined(CONFIG_KSU_SUSFS_DEINLINE)
         // Get task mark status
         ret = ksu_get_task_mark(cmd.pid);
         if (ret < 0) {
@@ -619,7 +620,7 @@ static int do_manage_mark(void __user *arg)
         break;
     }
     case KSU_MARK_MARK: {
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
+#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) && !defined(CONFIG_KSU_SUSFS_DEINLINE)
         if (cmd.pid == 0) {
             ksu_mark_all_process();
         } else {
@@ -637,7 +638,7 @@ static int do_manage_mark(void __user *arg)
         break;
     }
     case KSU_MARK_UNMARK: {
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
+#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) && !defined(CONFIG_KSU_SUSFS_DEINLINE)
         if (cmd.pid == 0) {
             ksu_unmark_all_process();
         } else {
@@ -655,7 +656,7 @@ static int do_manage_mark(void __user *arg)
         break;
     }
     case KSU_MARK_REFRESH: {
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
+#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) && !defined(CONFIG_KSU_SUSFS_DEINLINE)
         ksu_mark_running_process();
         pr_info("manage_mark: refreshed running processes\n");
 #else
@@ -1139,7 +1140,7 @@ static int do_get_hook_type(void __user *arg)
     const char *type = "Tamper Syscall Table";
 #elif defined(CONFIG_KSU_MANUAL_HOOK)
     const char *type = "Manual";
-#elif defined(CONFIG_KSU_SUSFS)
+#elif defined(CONFIG_KSU_SUSFS_INLINE_HOOK)
     const char *type = "Inline";
 #else
 #error "Unsupported hook type"
@@ -1280,6 +1281,12 @@ int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
         return 0;
     }
 #endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+    case CMD_SUSFS_ADD_TRY_UMOUNT: {
+        susfs_add_try_umount(arg);
+        return 0;
+    }
+#endif
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
     case CMD_SUSFS_SET_UNAME: {
         susfs_set_uname(arg);
@@ -1310,6 +1317,11 @@ int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
         return 0;
     }
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
+#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
+    case CMD_SUSFS_ADD_SUS_MEMFD: {
+        return susfs_add_sus_memfd(arg);
+    }
+#endif
     case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING: {
         susfs_set_avc_log_spoofing(arg);
         return 0;
