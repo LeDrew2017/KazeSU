@@ -82,7 +82,7 @@ static inline void ksu_set_ksud_status(uid_t new_uid)
     }
 }
 
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#if defined(CONFIG_KSU_SUSFS_INLINE_HOOK) || defined(KSU_COMPAT_HAS_SUSFS_V24)
 extern struct work_struct susfs_extra_works;
 
 static int handle_zygote_next_setresuid(uid_t new_uid)
@@ -189,7 +189,7 @@ static void ksu_handle_extra_susfs_work(void)
         pr_err("susfs: Failed adding task_work 'susfs_handle_setuid_tw', err: %d\n", err);
     }
 }
-#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+#if defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) && (!defined(KSU_COMPAT_HAS_SUSFS_V24) || defined(KSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS))
 extern void susfs_try_umount(uid_t uid);
 #endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 
@@ -273,7 +273,7 @@ static int ksu_handle_setuid_susfs(uid_t new_uid, uid_t old_uid)
 
 do_umount:
     // Handle kernel umount
-#ifndef CONFIG_KSU_SUSFS_TRY_UMOUNT
+#if !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) || (defined(KSU_COMPAT_HAS_SUSFS_V24) && !defined(KSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS))
     ksu_handle_umount(old_uid, new_uid);
 #else
     susfs_try_umount(new_uid);
@@ -292,6 +292,10 @@ do_umount:
 int ksu_handle_setuid(uid_t new_uid, uid_t old_uid)
 {
 #ifdef CONFIG_KSU_SUSFS_DEINLINE
+#ifdef KSU_COMPAT_HAS_SUSFS_V24
+    if (is_zygote_next(current_cred()))
+        return handle_zygote_next_setresuid(new_uid);
+#endif
     return ksu_handle_setuid_susfs(new_uid, old_uid);
 #else
 #ifdef CONFIG_KSU_SUSFS_INLINE_HOOK

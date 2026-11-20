@@ -234,6 +234,14 @@ static int do_report_event(void __user *arg)
             } else {
                 pr_info("boot_complete triggered\n");
                 on_boot_completed();
+#if defined(CONFIG_KSU_SUSFS) && defined(KSU_COMPAT_HAS_SUSFS_V24)
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+                susfs_parse_sus_path_app_strings();
+#endif
+#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER
+                susfs_parse_priority_app_strings();
+#endif
+#endif
 #ifdef CONFIG_KSU_SUSFS
                 susfs_start_sdcard_monitor_fn();
 #endif
@@ -1260,6 +1268,12 @@ int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
         susfs_add_sus_path_loop(arg);
         return 0;
     }
+#ifdef KSU_COMPAT_HAS_SUSFS_V24
+    case CMD_SUSFS_SET_SUS_PATH_UID_FILTER: {
+        susfs_set_sus_path_uid_filter(arg);
+        return 0;
+    }
+#endif
 #endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
     case CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS: {
@@ -1281,7 +1295,7 @@ int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
         return 0;
     }
 #endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+#if defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) && (!defined(KSU_COMPAT_HAS_SUSFS_V24) || defined(KSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS))
     case CMD_SUSFS_ADD_TRY_UMOUNT: {
         susfs_add_try_umount(arg);
         return 0;
@@ -1317,9 +1331,15 @@ int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
         return 0;
     }
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
-#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
+#if defined(CONFIG_KSU_SUSFS_SUS_MEMFD) && (!defined(KSU_COMPAT_HAS_SUSFS_V24) || defined(KSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS))
     case CMD_SUSFS_ADD_SUS_MEMFD: {
         return susfs_add_sus_memfd(arg);
+    }
+#endif
+#if defined(CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER) && defined(KSU_COMPAT_HAS_SUSFS_V24)
+    case CMD_SUSFS_SET_PRIORITY_UID_FILTER: {
+        susfs_set_priority_uid_filter(arg);
+        return 0;
     }
 #endif
     case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING: {

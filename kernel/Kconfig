@@ -105,8 +105,9 @@ config KSU_SUSFS
 	help
 	  Enable SUSFS integration independently of the KernelSU hook method.
 	  The matching SUSFS filesystem patches must be applied to the kernel.
-	  With de-inlined patches, select Tracepoint Syscall Redirect or Syscall
-	  Table Tampering. With inline patches, select SUSFS Inline Hook.
+	  With de-inlined patches, select Manual Hook on non-GKI kernels, or
+	  Tracepoint Syscall Redirect / Syscall Table Tampering on GKI2 kernels.
+	  With inline patches, select SUSFS Inline Hook.
 	  Existing configs enabling only KSU_SUSFS keep the inline hook default.
 
 choice
@@ -153,8 +154,8 @@ config KSU_SUSFS_INLINE_HOOK
 	depends on KSU_SUSFS
 	help
 	  Use the KernelSU callbacks supplied by inline SUSFS kernel patches.
-	  For de-inlined SUSFS patches, select Tracepoint Syscall Redirect or
-	  Syscall Table Tampering instead.
+	  For de-inlined SUSFS patches, select Manual Hook on non-GKI kernels,
+	  or Tracepoint Syscall Redirect / Syscall Table Tampering on GKI2.
 
 endchoice
 
@@ -249,7 +250,9 @@ config KSU_SUSFS_TRY_UMOUNT
 	help
 	  Use the SUSFS unmount list for zygote-spawned apps, as in
 	  KernelSU-Next legacy-susfs-v2. Requires susfs_try_umount() in
-	  the kernel's SUSFS implementation.
+	  the kernel's SUSFS implementation. SUSFS 2.4 removed this API;
+	  restored Kazesu extensions can provide it; otherwise KernelSU's
+	  unmount list is used instead.
 
 config KSU_SUSFS_SPOOF_UNAME
     bool "Enable to spoof uname"
@@ -308,7 +311,17 @@ config KSU_SUSFS_SUS_MEMFD
 	default n
 	help
 	  Prevent user-defined memfd names from being created.
-	  Requires the SUSFS memfd patches in the kernel.
+	  Requires the SUSFS memfd patches in the kernel (legacy SUSFS API).
+	  Stock SUSFS 2.4 removed this feature. Kazesu's 2.4 extension restores
+	  it at command 0x60040 to preserve the priority-filter ABI.
+
+config KSU_SUSFS_PRIORITY_UID_FILTER
+	bool "Enable priority syscall UID filtering (SUSFS 2.4)"
+	depends on KSU_SUSFS_DEINLINE
+	default n
+	help
+	  Enable SUSFS 2.4's UID filter for getpriority/setpriority queries.
+	  Requires matching SUSFS 2.4 kernel-side patches.
 
 endmenu
 

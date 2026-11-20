@@ -24,3 +24,7 @@ pub(super) const SUSFS_MAX_VERSION_BUFSIZE: usize = 16;
 pub(super) const SUSFS_MAX_VARIANT_BUFSIZE: usize = 16;
 pub(super) const NEW_UTS_LEN: usize = 64;
 pub(super) const ERR_CMD_NOT_SUPPORTED: i32 = 126;
+
+pub(super) const CMD_SUSFS_ADD_TRY_UMOUNT: u64 = 0x55580;
+pub(super) const CMD_SUSFS_ADD_SUS_MEMFD_LEGACY: u64 = 0x60030;
+pub(super) const CMD_SUSFS_ADD_SUS_MEMFD_V24_EXT: u64 = 0x60040;

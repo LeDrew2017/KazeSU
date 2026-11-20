@@ -210,6 +210,19 @@ pub enum SuSFSSubCommands {
         path: String,
     },
 
+    /// Register a mount path for the legacy SUSFS unmount list.
+    #[command(name = "add_try_umount")]
+    AddTryUmount {
+        path: String,
+        /// 0: normal unmount, 1: lazy detach.
+        #[arg(value_parser = clap::value_parser!(i32).range(0..=1))]
+        mode: i32,
+    },
+
+    /// Block a memfd name (the memfd: prefix is added automatically).
+    #[command(name = "add_sus_memfd")]
+    AddSusMemfd { name: String },
+
     /// Spoofing the sus tcontext 'su' shown in avc log in kernel.
     ///
     /// * Important Notes *
@@ -387,6 +400,12 @@ pub fn run_main(args: SusfsArgs) -> Result<()> {
         }
         SuSFSSubCommands::AddSusMap { path } => {
             api::add_sus_map(&path)?;
+        }
+        SuSFSSubCommands::AddTryUmount { path, mode } => {
+            api::add_try_umount(&path, mode)?;
+        }
+        SuSFSSubCommands::AddSusMemfd { name } => {
+            api::add_sus_memfd(&name)?;
         }
         SuSFSSubCommands::EnableAvcLogSpoofing { enabled } => {
             api::enable_avc_log_spoofing(enabled)?;

@@ -179,6 +179,16 @@ manual KernelSU hooks.
 The de-inlined addon includes SUSFS's unmount list
 (`CONFIG_KSU_SUSFS_TRY_UMOUNT`, enabled by default) and optional memfd hiding
 (`CONFIG_KSU_SUSFS_SUS_MEMFD`, disabled by default), matching the reference.
+SUSFS 2.4 is detected from its UID-filter API. Stock 2.4 removes the legacy
+unmount and memfd features; the builder restores both as Kazesu extensions.
+Enable `CONFIG_KSU_SUSFS_TRY_UMOUNT=y` and `CONFIG_KSU_SUSFS_SUS_MEMFD=y`
+with those extensions. Stock 2.4 priority filtering keeps command `0x60030`;
+the restored memfd command uses `0x60040`. Kazesu's `ksud susfs add_sus_memfd`
+selects the ABI from the kernel's advertised extension capability, while
+`ksud susfs add_try_umount` uses the original `0x55580` command. Old memfd
+tools using `0x60030` must be updated for the 2.4 extension kernel.
+The 2.4 sus_path UID-filter command is supported; priority UID filtering
+is optional via `CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER`.
 It still requires the kernel-side SUSFS patches and matching headers. Remove
 SUSFS's inline KernelSU callbacks from the kernel when using dynamic hooks,
 so each operation is handled once. The standalone `susfs_guard_lkm` is a

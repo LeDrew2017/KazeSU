@@ -8,3 +8,4 @@ pub mod sus_kstat;
 pub mod sus_map;
 pub mod sus_mount;
 pub mod sus_path;
+pub mod legacy_extensions;

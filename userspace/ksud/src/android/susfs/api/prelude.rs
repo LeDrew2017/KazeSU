@@ -1,6 +1,7 @@
 pub use crate::android::susfs::api::features::{
     avc_spoofing::enable_avc_log_spoofing,
     enable_log::enable_log,
+    legacy_extensions::{add_sus_memfd, add_try_umount},
     open_redirect::add_open_redirect,
     show::{enabled_features, variant, version},
     spoof_cmdline_or_bootconfig::set_cmdline_or_bootconfig,
