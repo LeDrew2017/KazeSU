@@ -2,7 +2,7 @@
 set -eu
 
 GKI_ROOT=$(pwd)
-REPO_URL="https://github.com/samakshkambxj/OriginSU"
+REPO_URL="git@github.com:LeDrew2017/KazeSU.git"
 DEFAULT_BRANCH="main"
 
 display_usage() {
