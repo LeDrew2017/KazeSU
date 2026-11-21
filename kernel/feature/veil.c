@@ -16,6 +16,7 @@
  * because the probe path runs in kprobe context.
  */
 
+#include <linux/ratelimit.h>
 #include <linux/anon_inodes.h>
 #include <linux/atomic.h>
 #include <linux/cache.h>

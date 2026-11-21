@@ -10,6 +10,7 @@
  * reach (smaps_rollup, pagemap).  smaps_rollup is deliberately NOT probed directly (see
  * "the sentinel") and the skip is gated like upstream's, apps only (see "the read gate").
  */
+#include <linux/ratelimit.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/fs.h>

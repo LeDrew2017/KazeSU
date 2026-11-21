@@ -24,6 +24,7 @@
  * Upstream's FUSE_SUPER_MAGIC branch (susfs.c:71-84, :151-166, :195-212) has no
  * equivalent here on purpose - see the note above sus_path_inode_hidden().
  */
+#include <linux/ratelimit.h>
 #include <linux/module.h>
 #include <linux/delay.h> /* ndelay, for the timing cover */
 #include <linux/random.h> /* prandom_u32_max, for its jitter */

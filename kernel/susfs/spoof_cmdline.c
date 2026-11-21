@@ -7,6 +7,7 @@
  * The fake string is heap-allocated (kstrdup): the supercall ABI accepts up to 8192 bytes, and the insmod
  * parameter is copied to the heap as well so a later supercall can free it safely.
  */
+#include <linux/ratelimit.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>

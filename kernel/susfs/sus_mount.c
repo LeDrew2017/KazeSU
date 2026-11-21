@@ -107,6 +107,7 @@
  *     sus_mount_learn_ns_walk() from 6.12 on), while the mount LINES in it are
  *     hidden by identity - which is what the note above this list is about.
  */
+#include <linux/ratelimit.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/fs.h>

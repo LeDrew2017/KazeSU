@@ -14,6 +14,7 @@
  * The handlers keep upstream's signature `void xxx(void __user **arg)`, *arg pointing at
  * the userspace payload struct.
  */
+#include <linux/ratelimit.h>
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/task_work.h>
