@@ -16,12 +16,12 @@ ccflags-y += -DKSU_COMPAT_HAS_SUSFS_INSTALL_SU_FD_DIRECT_CALL
 endif
 
 # The 2.4 API replaces the legacy try_umount/memfd commands with UID filters.
-ifeq ($(shell grep -q '^\#define CMD_SUSFS_SET_SUS_PATH_UID_FILTER' $(srctree)/include/linux/susfs_def.h; echo $$?),0)
+ifeq ($(shell grep -q '^#define CMD_SUSFS_SET_SUS_PATH_UID_FILTER' $(srctree)/include/linux/susfs_def.h; echo $$?),0)
 ccflags-y += -DKSU_COMPAT_HAS_SUSFS_V24
 $(info -- $(REPO_NAME)/susfs: 2.4 UID-filter API detected)
 endif
 
-ifeq ($(shell grep -q '^\#define SUSFS_KAZESU_LEGACY_EXTENSIONS' $(srctree)/include/linux/susfs_def.h; echo $$?),0)
+ifeq ($(shell grep -q '^#define SUSFS_KAZESU_LEGACY_EXTENSIONS' $(srctree)/include/linux/susfs_def.h; echo $$?),0)
 ccflags-y += -DKSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS
 $(info -- $(REPO_NAME)/susfs: legacy try_umount and memfd extensions detected)
 endif
