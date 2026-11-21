@@ -148,7 +148,7 @@ DEFINE_MEMBER(task_struct, parent)
 DEFINE_MEMBER(task_struct, group_leader)
 DEFINE_MEMBER(task_struct, mm)
 DEFINE_MEMBER(task_struct, active_mm)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0) && !defined(KSU_COMPAT_HAS_TASK_STRUCT_THREAD_PID)
 DEFINE_MEMBER(task_struct, pids[PIDTYPE_PID].pid)
 #else
 DEFINE_MEMBER(task_struct, thread_pid)

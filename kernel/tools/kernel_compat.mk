@@ -1,3 +1,9 @@
+# PID linkage can be backported to kernels older than 4.19.
+ifeq ($(shell grep -Eq '^[[:space:]]*struct[[:space:]]+pid[[:space:]]*\*[[:space:]]*thread_pid[[:space:]]*;' $(srctree)/include/linux/sched.h; echo $$?),0)
+$(info -- $(REPO_NAME)/compat: task_struct thread_pid found)
+ccflags-y += -DKSU_COMPAT_HAS_TASK_STRUCT_THREAD_PID
+endif
+
 # SELinux drivers check
 ifeq ($(shell grep -q "current_sid(void)" $(srctree)/security/selinux/include/objsec.h; echo $$?),0)
 $(info -- $(REPO_NAME)/compat: current_sid found)
