@@ -11,6 +11,7 @@
 #include "runtime/ksud_boot.h"
 #include "runtime/ksud.h"
 #include "manager/manager_observer.h"
+#include "manager/stealth.h"
 #include "manager/throne_tracker.h"
 
 bool ksu_module_mounted __read_mostly = false;
@@ -27,6 +28,7 @@ void on_post_fs_data(void)
     pr_info("on_post_fs_data!\n");
 
     ksu_load_allow_list();
+    ksu_stealth_load();
     ksu_observer_init();
     // sanity check, this may influence the performance
     ksu_stop_input_hook_runtime();

@@ -22,6 +22,9 @@ kernelsu-objs += feature/dynamic_manager.o
 kernelsu-objs += manager/apk_sign.o
 kernelsu-objs += manager/throne_tracker.o
 kernelsu-objs += manager/manager.o
+ifeq ($(CONFIG_KSU_STEALTH),y)
+kernelsu-objs += manager/stealth.o
+endif
 endif
 
 kernelsu-objs += compat/kernel_compat.o

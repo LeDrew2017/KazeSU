@@ -77,6 +77,17 @@ config KSU_MULTI_MANAGER_SUPPORT
 	help
 		Enable multi KernelSU manager support
 
+config KSU_STEALTH
+	bool "KazeSU stealth mode"
+	depends on KSU && !KSU_DISABLE_MANAGER
+	default y
+	help
+	  While the stealth switch is on, GET_INFO stops reporting
+	  KSU_GET_INFO_FLAG_MANAGER so the manager app looks "not installed".
+	  Real permission checks and the crowned manager are unchanged, so the
+	  manager (or root) can always toggle it back. State is persisted at
+	  /data/adb/ksu/stealth and reloaded on POST_FS_DATA.
+
 config KPM
     bool "Enable KPM support"
     depends on KSU && 64BIT

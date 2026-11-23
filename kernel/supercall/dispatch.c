@@ -27,6 +27,7 @@
 #include "feature/veil.h"
 #include "compat/kernel_compat.h"
 #include "manager/manager_identity.h"
+#include "manager/stealth.h"
 #include "selinux/selinux.h"
 #include "infra/file_wrapper.h"
 #if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
@@ -132,7 +133,7 @@ static int do_get_info(void __user *arg)
 #ifdef EXPECTED_PR_BUILD_SIZE
     cmd.flags |= KSU_GET_INFO_FLAG_PR_BUILD;
 #endif
-    if (is_manager()) {
+    if (is_manager() && !ksu_stealth_is_enabled()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
     }
     if (ksu_late_loaded) {
@@ -172,7 +173,7 @@ static int do_get_info_legacy(void __user *arg)
     }
 #endif
 
-    if (is_manager()) {
+    if (is_manager() && !ksu_stealth_is_enabled()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
     }
     if (ksu_late_loaded) {
@@ -1168,6 +1169,29 @@ static int do_get_hook_type(void __user *arg)
     return 0;
 }
 
+/* 23/24. STEALTH_GET/STEALTH_SET - read or write the persisted stealth switch */
+static int do_stealth_get(void __user *arg)
+{
+    struct ksu_stealth_cmd cmd = { .enabled = ksu_stealth_is_enabled() ? 1 : 0 };
+
+    if (copy_to_user(arg, &cmd, sizeof(cmd))) {
+        pr_err("stealth_get: copy_to_user failed\n");
+        return -EFAULT;
+    }
+
+    return 0;
+}
+
+static int do_stealth_set(void __user *arg)
+{
+    struct ksu_stealth_cmd cmd;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd)))
+        return -EFAULT;
+
+    return ksu_stealth_set(cmd.enabled != 0);
+}
+
 // 102. ENABLE_KPM - Check if KPM is enabled
 static int do_enable_kpm(void __user *arg)
 {
@@ -1745,6 +1769,18 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .name = "LOOKUP_SYMBOLS",
         .handler = do_lookup_symbols,
         .perm_check = only_root
+    },
+    {
+        .cmd = KSU_IOCTL_STEALTH_GET,
+        .name = "STEALTH_GET",
+        .handler = do_stealth_get,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_STEALTH_SET,
+        .name = "STEALTH_SET",
+        .handler = do_stealth_set,
+        .perm_check = manager_or_root
     },
     // downstream begin
     { 

@@ -21,7 +21,8 @@
 // 5: blocking su request prompt (poll/answer ioctls + prompt features)
 // 5: add EVENT_SERVICES with a start/skip result (upstream, shares version 5)
 // 6: add KSU_IOCTL_LOOKUP_SYMBOLS and KSU_GET_INFO_FLAG_PREINIT; modules.rc and preinit may live under /metadata/vold/ksu
-static const __u32 KERNEL_SU_UAPI_VERSION = 6;
+// 7: add KSU_IOCTL_STEALTH_GET / KSU_IOCTL_STEALTH_SET (same numbers as KazeSU main)
+static const __u32 KERNEL_SU_UAPI_VERSION = 7;
 
 /* Magic numbers for reboot hook to install fd */
 DEFINE_KSU_UAPI_CONST(__u32, KSU_INSTALL_MAGIC1, 0xDEADBEEF)
@@ -251,6 +252,14 @@ struct ksu_hook_type_cmd {
     char hook_type[32]; // Output: hook type string
 };
 
+/*
+ * Stealth mode switch. While on, GET_INFO stops reporting the manager flag so
+ * the app looks uninstalled. Real permission checks are unaffected.
+ */
+struct ksu_stealth_cmd {
+    __u8 enabled; /* Input for SET, output for GET */
+};
+
 struct ksu_enable_kpm_cmd {
     __u8 enabled; // Output: true if KPM is enabled
 };
@@ -329,6 +338,8 @@ DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_MANAGE_TRY_UMOUNT, _IOC(_IOC_WRITE, 'K', 
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SET_INIT_PGRP, _IO('K', 19))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_GET_SULOG_FD, _IOW('K', 20, struct ksu_get_sulog_fd_cmd))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT, _IO('K', 21))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_STEALTH_GET, _IOR('K', 23, struct ksu_stealth_cmd))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_STEALTH_SET, _IOW('K', 24, struct ksu_stealth_cmd))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SU_REQUEST_POLL, _IOC(_IOC_READ | _IOC_WRITE, 'K', 25, 0))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SU_REQUEST_ANSWER, _IOC(_IOC_WRITE, 'K', 26, 0))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_LOOKUP_SYMBOLS, _IOW('K', 27, struct ksu_lookup_symbols_cmd))
