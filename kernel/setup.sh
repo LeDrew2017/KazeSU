@@ -3,7 +3,7 @@ set -eu
 
 GKI_ROOT=$(pwd)
 REPO_URL="git@github.com:LeDrew2017/KazeSU.git"
-DEFAULT_BRANCH="main"
+DEFAULT_BRANCH="legacy"
 
 display_usage() {
 	echo "Usage: $0 [--cleanup | <commit-or-tag>]"
@@ -11,7 +11,7 @@ display_usage() {
 	echo "  <commit-or-tag>:		Sets up or updates OriginSU to the specified tag, branch or commit."
 	echo "  -h, --help:			 Displays this usage information."
 	echo "  --submodule:		  Registers the downloaded OriginSU copy as a git submodule."
-	echo "  (no args):			  Sets up or updates OriginSU to the latest tagged version."
+	echo "  (no args):			  Sets up or updates OriginSU to the latest $DEFAULT_BRANCH branch."
 }
 
 initialize_variables() {
@@ -91,21 +91,21 @@ perform_cleanup() {
 }
 
 checkout_ref() {
-	# $1: optional ref (tag / branch / commit). Empty = latest tag, fallback to DEFAULT_BRANCH.
+	# $1: optional ref (tag / branch / commit). Empty = DEFAULT_BRANCH.
 	ref="${1-}"
 	if [ -z "$ref" ]; then
-		if latest_tag=$(git describe --abbrev=0 --tags 2>/dev/null); then
-			ref="$latest_tag"
-		else
-			echo "[!] No tags found, falling back to $DEFAULT_BRANCH."
-			ref="$DEFAULT_BRANCH"
-		fi
+		ref="$DEFAULT_BRANCH"
 	fi
 	if git checkout "$ref"; then
 		echo "[-] Checked out $ref."
 	else
 		echo "[ERROR] Failed to check out '$ref'." >&2
 		exit 1
+	fi
+	# The pull in setup_kernelsu() updates whatever branch was checked out
+	# before; bring this branch up to date as well.
+	if git symbolic-ref -q HEAD >/dev/null 2>&1; then
+		git pull --ff-only || echo "[!] 'git pull --ff-only' failed, continuing with local copy."
 	fi
 }
 
