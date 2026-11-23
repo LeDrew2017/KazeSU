@@ -14,14 +14,14 @@ void ksu_sucompat_init(void);
 void ksu_sucompat_exit(void);
 
 // Handler functions exported for hook_manager
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#ifdef CONFIG_KSU_SUSFS
 int ksu_handle_faccessat(int *dfd, struct filename **filename, int *mode, int *__unused_flags);
 int ksu_handle_stat(int *dfd, struct filename **filename, int *flags);
 #else
 int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode, int *__unused_flags);
 int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
 int ksu_handle_post_execve(int *fd, const char *filename, void *argv, void *envp, int *flags, int *retval);
-#endif // #ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 #if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include <asm/current.h>
@@ -40,7 +40,7 @@ long ksu_handle_execveat_sucompat_internal(const char __user **filename_user, in
 #define ksu_set_current_proc_unprivillege() ksu_clear_task_tracepoint_flag_if_needed(current)
 #define ksu_clear_current_proc_unprivillege() ksu_set_task_tracepoint_flag(current)
 
-#elif defined(CONFIG_KSU_SUSFS_INLINE_HOOK) // inline susfs
+#elif defined(CONFIG_KSU_SUSFS) // susfs
 #include <linux/susfs_def.h>
 
 // sync with manual hook

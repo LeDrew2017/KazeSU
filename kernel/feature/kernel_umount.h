@@ -5,10 +5,6 @@
 #include <linux/list.h>
 #include <linux/rwsem.h>
 
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-extern bool ksu_kernel_umount_enabled;
-#endif
-
 void ksu_kernel_umount_init(void);
 void ksu_kernel_umount_exit(void);
 

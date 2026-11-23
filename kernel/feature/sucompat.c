@@ -19,12 +19,12 @@
 #include <linux/sched.h>
 #endif
 
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#ifdef CONFIG_KSU_SUSFS
 #include <linux/susfs_def.h>
 #include <linux/namei.h>
 #include "selinux/selinux.h"
 #include "objsec.h"
-#endif // #ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 #include "arch.h"
 #include "policy/allowlist.h"
@@ -382,7 +382,7 @@ long ksu_handle_execveat_sucompat_internal(const char __user **filename_user, in
 }
 #endif
 
-#if defined(CONFIG_KSU_SUSFS_INLINE_HOOK) || defined(CONFIG_KSU_MANUAL_HOOK)
+#if defined(CONFIG_KSU_SUSFS) || defined(CONFIG_KSU_MANUAL_HOOK)
 
 static inline int do_ksu_handle_execveat_sucompat(int *fd, const char *filename, struct user_arg_ptr *argv)
 {
@@ -550,7 +550,7 @@ int ksu_handle_post_execveat(int *fd, struct filename **filename_ptr, void *argv
 }
 
 // compat for check in hook
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#ifdef CONFIG_KSU_SUSFS
 int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv, void *envp, int *flags)
 {
     // workaround susfs codes as below
@@ -582,7 +582,7 @@ int ksu_handle_post_execve(int *fd, const char *filename, void *argv, void *envp
 }
 #endif
 
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#ifdef CONFIG_KSU_SUSFS
 int ksu_handle_faccessat(int *dfd, struct filename **filename, int *mode, int *__unused_flags)
 {
     const struct cred *old_cred;
@@ -656,7 +656,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
 }
 #endif
 
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#ifdef CONFIG_KSU_SUSFS
 int ksu_handle_stat(int *dfd, struct filename **filename, int *flags)
 {
     const struct cred *old_cred;

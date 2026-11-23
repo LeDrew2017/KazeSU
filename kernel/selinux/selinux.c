@@ -124,10 +124,6 @@ static void __security_release_secctx(struct lsm_context *cp)
 #define KERNEL_PRIV_APP_DOMAIN "u:r:priv_app:s0:c512,c768"
 u32 susfs_priv_app_sid = 0; // compatible with simonpunk, why he don't use sid cache???
 u32 susfs_ksu_sid = 0;
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-u32 susfs_init_sid = 0;
-u32 susfs_zygote_sid = 0;
-#endif
 #endif
 
 /*
@@ -285,60 +281,6 @@ bool is_adbd(const struct cred *cred)
 #ifdef CONFIG_KSU_SUSFS
 #define KERNEL_PRIV_APP_DOMAIN "u:r:priv_app:s0:c512,c768"
 
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-static inline void susfs_set_sid(const char *secctx_name, u32 *out_sid)
-{
-    int err;
-
-    if (!secctx_name || !out_sid) {
-        pr_err("secctx_name || out_sid is NULL\n");
-        return;
-    }
-
-    err = security_secctx_to_secid(secctx_name, strlen(secctx_name),
-                       out_sid);
-    if (err) {
-        pr_err("failed setting sid for '%s', err: %d\n", secctx_name, err);
-        return;
-    }
-    pr_info("sid '%u' is set for secctx_name '%s'\n", *out_sid, secctx_name);
-}
-
-bool susfs_is_sid_equal(const struct cred *cred, u32 sid2) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
-    const struct task_security_struct *tsec = selinux_cred(cred);
-#else
-    const struct cred_security_struct *tsec = selinux_cred(cred);
-#endif
-
-    if (!tsec) {
-        return false;
-    }
-    return tsec->sid == sid2;
-}
-
-void susfs_set_zygote_sid(void)
-{
-    susfs_set_sid(ZYGOTE_CONTEXT, &susfs_zygote_sid);
-}
-
-void susfs_set_ksu_sid(void)
-{
-    susfs_set_sid(KERNEL_SU_CONTEXT, &susfs_ksu_sid);
-}
-
-void susfs_set_init_sid(void)
-{
-    susfs_set_sid(INIT_CONTEXT, &susfs_init_sid);
-}
-
-void susfs_set_priv_app_sid(void)
-{
-    susfs_set_sid(KERNEL_PRIV_APP_DOMAIN, &susfs_priv_app_sid);
-}
-
-#endif
-
 u32 susfs_get_sid_from_name(const char *secctx_name)
 {
     u32 out_sid = 0;
@@ -363,29 +305,17 @@ u32 susfs_get_current_sid(void)
 
 bool susfs_is_current_zygote_domain(void)
 {
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-    return unlikely(current_sid() == susfs_zygote_sid);
-#else
     return is_zygote(current_cred());
-#endif
 }
 
 bool susfs_is_current_ksu_domain(void)
 {
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-    return unlikely(current_sid() == susfs_ksu_sid);
-#else
     return is_ksu_domain();
-#endif
 }
 
 bool susfs_is_current_init_domain(void)
 {
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-    return unlikely(current_sid() == susfs_init_sid);
-#else
     return is_init(current_cred());
-#endif
 }
 #endif // #ifdef CONFIG_KSU_SUSFS
 

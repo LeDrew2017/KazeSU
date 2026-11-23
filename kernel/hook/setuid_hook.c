@@ -30,8 +30,6 @@
 #ifdef CONFIG_KSU_SUSFS
 #include <linux/susfs_def.h>
 #include <linux/workqueue.h>
-#include <linux/task_work.h>
-#include "selinux/selinux.h"
 #endif
 
 static inline void ksu_set_file_immutable(const char *path_name, bool immutable)
@@ -82,7 +80,7 @@ static inline void ksu_set_ksud_status(uid_t new_uid)
     }
 }
 
-#if defined(CONFIG_KSU_SUSFS_INLINE_HOOK) || defined(KSU_COMPAT_HAS_SUSFS_V24)
+#ifdef CONFIG_KSU_SUSFS
 extern struct work_struct susfs_extra_works;
 
 static int handle_zygote_next_setresuid(uid_t new_uid)
@@ -133,173 +131,10 @@ do_susfs_work: {
 }
 #endif
 
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-/* Adapted from KernelSU-Next legacy-susfs-v2 (d999a2af).
- * Keep its v2 process/unmount flow separate from Kazesu's inline SUSFS ABI.
- */
-static inline bool is_zygote_isolated_service_uid(uid_t uid)
-{
-    uid %= 100000;
-    return (uid >= 99000 && uid < 100000);
-}
-
-static inline bool is_zygote_normal_app_uid(uid_t uid)
-{
-    uid %= 100000;
-    return (uid >= 10000 && uid < 19999);
-}
-
-extern u32 susfs_zygote_sid;
-extern struct cred *ksu_cred;
-extern struct work_struct susfs_extra_works;
-
-struct susfs_handle_setuid_tw {
-    struct callback_head cb;
-};
-
-static void susfs_handle_setuid_tw_func(struct callback_head *cb)
-{
-    struct susfs_handle_setuid_tw *tw = container_of(cb, struct susfs_handle_setuid_tw, cb);
-    const struct cred *saved = override_creds(ksu_cred);
-
-    revert_creds(saved);
-    kfree(tw);
-}
-
-static void ksu_handle_extra_susfs_work(void)
-{
-    struct susfs_handle_setuid_tw *tw;
-
-    if (work_pending(&susfs_extra_works))
-        return;
-
-    tw = kzalloc(sizeof(*tw), GFP_ATOMIC);
-    schedule_work(&susfs_extra_works);
-
-    if (!tw) {
-        pr_err("susfs: No enough memory\n");
-        return;
-    }
-
-    tw->cb.func = susfs_handle_setuid_tw_func;
-
-    int err = task_work_add(current, &tw->cb, TWA_RESUME);
-    if (err) {
-        kfree(tw);
-        pr_err("susfs: Failed adding task_work 'susfs_handle_setuid_tw', err: %d\n", err);
-    }
-}
-#if defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) && (!defined(KSU_COMPAT_HAS_SUSFS_V24) || defined(KSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS))
-extern void susfs_try_umount(uid_t uid);
-#endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
-
-static void ksu_install_manager_fd_tw_func(struct callback_head *cb)
-{
-    ksu_install_fd();
-    kfree(cb);
-}
-
-static int ksu_handle_setuid_susfs(uid_t new_uid, uid_t old_uid)
-{
-
-#ifdef CONFIG_KSU_SUSFS
-    // We only interest in process spwaned by zygote
-    if (!susfs_is_sid_equal(current_cred(), susfs_zygote_sid)) {
-        return 0;
-    }
-#endif // #ifdef CONFIG_KSU_SUSFS
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-    // Check if spawned process is isolated service first, and force to do umount if so
-    if (is_zygote_isolated_service_uid(new_uid)) {
-        goto do_umount;
-    }
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-
-    pr_debug("handle_setresuid from %d to %d\n", old_uid, new_uid);
-
-    if (unlikely(ksu_is_manager_uid(new_uid))) {
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-        if (current->seccomp.mode == SECCOMP_MODE_FILTER && current->seccomp.filter) {
-            spin_lock_irq(&current->sighand->siglock);
-            ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
-            spin_unlock_irq(&current->sighand->siglock);
-        }
-#else
-		disable_seccomp();
-#endif
-
-        ksu_clear_current_proc_unprivillege();
-
-        ksu_mark_manager(new_uid);
-        ksu_set_ksud_status(new_uid);
-        pr_info("install fd for manager: %d\n", new_uid);
-        struct callback_head *cb = kzalloc(sizeof(*cb), GFP_ATOMIC);
-        if (!cb)
-            return 0;
-        cb->func = ksu_install_manager_fd_tw_func;
-        if (task_work_add(current, cb, TWA_RESUME)) {
-            kfree(cb);
-            pr_warn("install manager fd add task_work failed\n");
-        }
-        return 0;
-    }
-
-// Check if spawned process is normal user app and needs to be umounted
-#ifdef CONFIG_KSU_SUSFS
-    if (likely(is_zygote_normal_app_uid(new_uid) && ksu_uid_should_umount(new_uid))) {
-        goto do_umount;
-    }
-#endif // #ifdef CONFIG_KSU_SUSFS
-
-	if (ksu_is_allow_uid_for_current(new_uid)) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-        if (current->seccomp.mode == SECCOMP_MODE_FILTER && current->seccomp.filter) {
-            spin_lock_irq(&current->sighand->siglock);
-            ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
-            spin_unlock_irq(&current->sighand->siglock);
-        }
-#else
-		disable_seccomp();
-#endif
-
-        ksu_clear_current_proc_unprivillege();
-	} else {
-        ksu_set_current_proc_unprivillege();
-    }
-
-    return 0;
-
-do_umount:
-    // Handle kernel umount
-#if !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT) || (defined(KSU_COMPAT_HAS_SUSFS_V24) && !defined(KSU_COMPAT_HAS_SUSFS_LEGACY_EXTENSIONS))
-    ksu_handle_umount(old_uid, new_uid);
-#else
-    susfs_try_umount(new_uid);
-#endif // #ifndef CONFIG_KSU_SUSFS_TRY_UMOUNT
-
-#ifdef CONFIG_KSU_SUSFS
-    ksu_handle_extra_susfs_work();
-
-    susfs_set_current_proc_umounted();
-#endif // #ifdef CONFIG_KSU_SUSFS
-    return 0;
-}
-
-#endif
-
 int ksu_handle_setuid(uid_t new_uid, uid_t old_uid)
 {
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-#ifdef KSU_COMPAT_HAS_SUSFS_V24
-    if (is_zygote_next(current_cred()))
-        return handle_zygote_next_setresuid(new_uid);
-#endif
-    return ksu_handle_setuid_susfs(new_uid, old_uid);
-#else
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
-    // Only inline susfs will process zygote_next
+#ifdef CONFIG_KSU_SUSFS
+    // Only susfs will process zygote_next
     // We don't care it in Tracepoint / Manual hook
 
     if (is_zygote_next(current_cred())) {
@@ -337,7 +172,6 @@ int ksu_handle_setuid(uid_t new_uid, uid_t old_uid)
     ksu_handle_umount(old_uid, new_uid);
 
     return 0;
-#endif
 }
 
 int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid)

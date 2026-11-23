@@ -97,7 +97,7 @@ static void stop_execve_hook(void);
     {
         schedule_work(&stop_input_hook_work);
     }
-#elif defined(CONFIG_KSU_SUSFS_INLINE_HOOK)
+#elif defined(CONFIG_KSU_SUSFS)
     DEFINE_STATIC_KEY_TRUE(ksu_is_init_rc_hook_enabled);
     DEFINE_STATIC_KEY_TRUE(ksu_is_input_hook_enabled);
 
@@ -691,7 +691,7 @@ void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_pt
 
 #endif
 
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#ifdef CONFIG_KSU_SUSFS
 void ksu_handle_vfs_fstat(int fd, loff_t *kstat_size_ptr)
 {
     struct file *file = fget(fd);
@@ -713,7 +713,7 @@ void ksu_handle_vfs_fstat(int fd, loff_t *kstat_size_ptr)
     }
     fput(file);
 }
-#endif // #ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 void ksu_handle_initrc(struct file *file)
 {

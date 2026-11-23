@@ -109,22 +109,9 @@ config KSU_ORIGIN_VEIL
 	  module mounts from probing apps. Controlled from the manager
 	  via the Veil feature flag and cloak ioctls.
 
-config KSU_SUSFS
-	bool "KernelSU addon - SUSFS"
-	depends on KSU && THREAD_INFO_IN_TASK && 64BIT
-	default n
-	help
-	  Enable SUSFS integration independently of the KernelSU hook method.
-	  The matching SUSFS filesystem patches must be applied to the kernel.
-	  With de-inlined patches, select Manual Hook on non-GKI kernels, or
-	  Tracepoint Syscall Redirect / Syscall Table Tampering on GKI2 kernels.
-	  With inline patches, select SUSFS Inline Hook.
-	  Existing configs enabling only KSU_SUSFS keep the inline hook default.
-
 choice
 	prompt "KernelSU Hooking Method"
 	depends on KSU
-	default KSU_SUSFS_INLINE_HOOK if KSU_SUSFS
 	default KSU_TRACEPOINT_HOOK
 	help
 	  Select the hooking method for KernelSU.
@@ -160,19 +147,16 @@ config KSU_MANUAL_HOOK
 	  with a manually-patched function.
 	  Support for kernel 3.4+
 
-config KSU_SUSFS_INLINE_HOOK
+config KSU_SUSFS
 	bool "SUSFS Inline Hook"
-	depends on KSU_SUSFS
+	depends on THREAD_INFO_IN_TASK && 64BIT
 	help
-	  Use the KernelSU callbacks supplied by inline SUSFS kernel patches.
-	  For de-inlined SUSFS patches, select Manual Hook on non-GKI kernels,
-	  or Tracepoint Syscall Redirect / Syscall Table Tampering on GKI2.
+	  Patch and Enable SUSFS to kernel with KernelSU.
+	  SuSFS Officially support kernel 5.10+
+	  This KSU driver support it for 4.3+ in KSU side, 
+	  But the kernel side susfs compatibility MUST completed by yourself.
 
 endchoice
-
-config KSU_SUSFS_DEINLINE
-	bool
-	default y if KSU_SUSFS && !KSU_SUSFS_INLINE_HOOK
 
 menu "KernelSU - Manual Hook Auto hook"
     depends on KSU_MANUAL_HOOK
@@ -223,8 +207,9 @@ menu "KernelSU - SUSFS"
     depends on KSU_SUSFS
 
 comment "------------------------WARNING-------------------------------"
-comment "Inline mode checks KernelSU callbacks in the kernel sources"
-comment "De-inlined mode requires SUSFS filesystem patches without inline KernelSU callbacks"
+comment "OriginSU will check EVERY hooks in kernel compile process"
+comment "If anything mismatch with simonpunk's patch, Kernel compile maybe FAILED!"
+comment "See simonpunk's original patch if you face any compile failed due to hook check"
 comment "Repo: https://gitlab.com/simonpunk/susfs4ksu"
 comment "--------------------------------------------------------------"
 config KSU_SUSFS_SUS_PATH
@@ -253,17 +238,6 @@ config KSU_SUSFS_SUS_KSTAT
     help
         - Allow spoofing the kstat of user-defined file/directory.
         - Effective only on zygote spawned user app process with uid >= 10000.
-
-config KSU_SUSFS_TRY_UMOUNT
-	bool "Enable to use ksu's try_umount"
-	depends on KSU_SUSFS_DEINLINE
-	default y
-	help
-	  Use the SUSFS unmount list for zygote-spawned apps, as in
-	  KernelSU-Next legacy-susfs-v2. Requires susfs_try_umount() in
-	  the kernel's SUSFS implementation. SUSFS 2.4 removed this API;
-	  restored Kazesu extensions can provide it; otherwise KernelSU's
-	  unmount list is used instead.
 
 config KSU_SUSFS_SPOOF_UNAME
     bool "Enable to spoof uname"
@@ -316,23 +290,13 @@ config KSU_SUSFS_SUS_MAP
         - It may not be able to evade detections by apps that implement a good injection detection.
         - Effective only on zygote spawned umounted user app process >= 10000.
 
-config KSU_SUSFS_SUS_MEMFD
-	bool "Enable to hide or spoof suspicious memfd (experimental)"
-	depends on KSU_SUSFS_DEINLINE
-	default n
-	help
-	  Prevent user-defined memfd names from being created.
-	  Requires the SUSFS memfd patches in the kernel (legacy SUSFS API).
-	  Stock SUSFS 2.4 removed this feature. Kazesu's 2.4 extension restores
-	  it at command 0x60040 to preserve the priority-filter ABI.
-
 config KSU_SUSFS_PRIORITY_UID_FILTER
-	bool "Enable priority syscall UID filtering (SUSFS 2.4)"
-	depends on KSU_SUSFS_DEINLINE
-	default n
-	help
-	  Enable SUSFS 2.4's UID filter for getpriority/setpriority queries.
-	  Requires matching SUSFS 2.4 kernel-side patches.
+    bool "Enable SUSFS priority UID filter"
+    depends on KSU_SUSFS
+    default y
+    help
+        Hide configured application UIDs from getpriority, setpriority,
+        ioprio_get, and ioprio_set for unprivileged app processes.
 
 endmenu
 

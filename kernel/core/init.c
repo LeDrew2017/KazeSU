@@ -127,16 +127,13 @@ static inline void __init ksu_hook_init(void)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
     ksu_lsm_hook_built_in_init();
 #endif
-#elif defined(CONFIG_KSU_SUSFS_INLINE_HOOK)
+#elif defined(CONFIG_KSU_SUSFS)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
     ksu_lsm_hook_built_in_init();
 #endif
+    susfs_init();
 #else
 #error "Unsupported hook type"
-#endif
-
-#ifdef CONFIG_KSU_SUSFS_INLINE_HOOK
-    susfs_init();
 #endif
 }
 
@@ -307,10 +304,6 @@ int __init kernelsu_init(void)
         ksu_allowlist_init();
 
         ksu_throne_tracker_init();
-
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-        susfs_init();
-#endif
 
         ksu_ksud_init();
 

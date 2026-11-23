@@ -1,6 +1,5 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/task_work.h>
 #include <linux/version.h>
 #include <linux/cred.h>
 #include <linux/fs.h>
@@ -26,11 +25,7 @@
 #include "ksu.h"
 #include "feature/sucompat.h"
 
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-bool ksu_kernel_umount_enabled = true;
-#else
 static bool ksu_kernel_umount_enabled = true;
-#endif
 
 static int kernel_umount_feature_get(u64 *value)
 {
@@ -97,40 +92,8 @@ static void do_umount_for_current_task()
     revert_creds(saved);
 }
 
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-static void ksu_susfs_umount_tw_func(struct callback_head *cb)
-{
-    do_umount_for_current_task();
-    kfree(cb);
-}
-#endif
-
 int ksu_handle_umount(uid_t old_uid, uid_t new_uid)
 {
-#ifdef CONFIG_KSU_SUSFS_DEINLINE
-    struct callback_head *cb;
-    int err;
-
-    if (!ksu_module_mounted || !ksu_kernel_umount_enabled || !ksu_cred)
-        return 0;
-    if (!is_appuid(new_uid) && !is_isolated_process(new_uid))
-        return 0;
-    if (!ksu_uid_should_umount(new_uid) && !is_isolated_process(new_uid))
-        return 0;
-    if (!is_zygote(current_cred()))
-        return 0;
-
-    cb = kzalloc(sizeof(*cb), GFP_ATOMIC);
-    if (!cb)
-        return 0;
-    cb->func = ksu_susfs_umount_tw_func;
-    err = task_work_add(current, cb, TWA_RESUME);
-    if (err) {
-        kfree(cb);
-        pr_warn("unmount add task_work failed: %d\n", err);
-    }
-    return 0;
-#else
     const struct cred *saved;
     struct mount_entry *entry;
 
@@ -184,7 +147,6 @@ skip_umount_task:
 #endif
 
     return 0;
-#endif
 }
 
 void __init ksu_kernel_umount_init(void)
