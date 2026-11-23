@@ -48,11 +48,13 @@ import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.screen.susfs.subpages.OpenRedirectTab
+import com.originsu.manager.ui.screen.susfs.subpages.PriorityUidFilterTab
 import com.originsu.manager.ui.screen.susfs.subpages.StandardFeaturesTab
 import com.originsu.manager.ui.screen.susfs.subpages.StatusTab
 import com.originsu.manager.ui.screen.susfs.subpages.SusKstatTab
 import com.originsu.manager.ui.screen.susfs.subpages.SusMapTab
 import com.originsu.manager.ui.screen.susfs.subpages.SusPathTab
+import com.originsu.manager.ui.screen.susfs.subpages.SusPathUidFilterTab
 import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurEffect
@@ -195,6 +197,26 @@ fun SuSFSConfigScreen() {
             title = stringResource(R.string.susfs_tab_sus_map),
         ) { innerPadding, nestedScrollConnection ->
             SusMapTab(
+                nestedScrollConnection = nestedScrollConnection,
+                innerPadding = innerPadding,
+                onRegisterRefresh = onRegisterRefresh,
+            )
+        },
+        SuSFSConfigSubpage(
+            requirePersist = true,
+            title = stringResource(R.string.susfs_priority_uid_filter_title),
+        ) { innerPadding, nestedScrollConnection ->
+            PriorityUidFilterTab(
+                nestedScrollConnection = nestedScrollConnection,
+                innerPadding = innerPadding,
+                onRegisterRefresh = onRegisterRefresh,
+            )
+        },
+        SuSFSConfigSubpage(
+            requirePersist = true,
+            title = stringResource(R.string.susfs_sus_path_uid_filter_title),
+        ) { innerPadding, nestedScrollConnection ->
+            SusPathUidFilterTab(
                 nestedScrollConnection = nestedScrollConnection,
                 innerPadding = innerPadding,
                 onRegisterRefresh = onRegisterRefresh,

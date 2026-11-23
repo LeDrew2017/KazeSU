@@ -606,4 +606,13 @@
     <string name="require_kernel_version_gki">Mise à jour du noyau requise</string>
     <string name="enable_floating_bottom_bar">Barre de navigation flottante</string>
     <string name="enable_floating_bottom_bar_summary">Barre de navigation flottante à la manière du dock Apple</string>
+
+    <string name="susfs_priority_uid_filter_title">Filtre de priorité UID</string>
+    <string name="susfs_priority_uid_filter_description">Sélectionner les applications dont les UID doivent être masqués vis-à-vis des appels système relatifs à la priorité et à la priorité d\'E/S. Seules les applications ayant un UID compris entre 10000 et 19999 peuvent être sélectionnées. Les modifications prennent effet immédiatement et sont rétablies après un redémarrage. Les applications partageant un même UID sont toutes affectées simultanément.</string>
+    <string name="susfs_priority_uid_filter_search">Rechercher des applications</string>
+    <string name="susfs_priority_uid_filter_loading">Chargement des applications…</string>
+    <string name="susfs_sus_path_uid_filter_title">Visibilité du chemin SUS</string>
+    <string name="susfs_sus_path_uid_filter_description">Sélectionner les applications autorisées à voir les chemins masqués par SUSFS. Les autres applications ordinaires ne peuvent pas voir ces chemins. Seules les applications ayant un UID compris entre 10000 et 19999 peuvent être sélectionnées. Les modifications prennent effet immédiatement et sont rétablies après un redémarrage. Les applications partageant un même UID sont toutes affectées simultanément.</string>
+    <string name="susfs_uid_filter_search">Rechercher des applications</string>
+    <string name="susfs_uid_filter_loading">Chargement des applications…</string>
 </resources>

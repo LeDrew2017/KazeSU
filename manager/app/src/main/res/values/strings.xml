@@ -1700,4 +1700,13 @@
     <string name="origin_curtain_upstream_conflict_summary">Changes made in the upstream app can overwrite Origin Curtain. Use one of them, not both</string>
     <string name="origin_curtain_open_upstream">Open HMA-OSS app</string>
     <string name="origin_curtain_open_upstream_summary">Access the upstream app for options Origin Curtain does not cover yet</string>
+
+    <string name="susfs_priority_uid_filter_title">Priority UID filter</string>
+    <string name="susfs_priority_uid_filter_description">Select apps whose UIDs should be hidden from priority and I/O priority syscalls. Applies to app UIDs 10000–19999. Changes take effect immediately and are restored after reboot. Apps sharing a UID are affected together.</string>
+    <string name="susfs_priority_uid_filter_search">Search apps</string>
+    <string name="susfs_priority_uid_filter_loading">Loading apps…</string>
+    <string name="susfs_sus_path_uid_filter_title">SUS path visibility</string>
+    <string name="susfs_sus_path_uid_filter_description">Select apps that can see paths hidden by SUSFS. Other ordinary apps cannot see these paths. Only app UIDs 10000–19999 can be selected. Changes take effect immediately and are restored after reboot. Apps sharing a UID are affected together.</string>
+    <string name="susfs_uid_filter_search">Search apps</string>
+    <string name="susfs_uid_filter_loading">Loading apps…</string>
 </resources>

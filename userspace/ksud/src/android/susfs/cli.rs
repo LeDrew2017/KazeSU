@@ -210,19 +210,6 @@ pub enum SuSFSSubCommands {
         path: String,
     },
 
-    /// Register a mount path for the legacy SUSFS unmount list.
-    #[command(name = "add_try_umount")]
-    AddTryUmount {
-        path: String,
-        /// 0: normal unmount, 1: lazy detach.
-        #[arg(value_parser = clap::value_parser!(i32).range(0..=1))]
-        mode: i32,
-    },
-
-    /// Block a memfd name (the memfd: prefix is added automatically).
-    #[command(name = "add_sus_memfd")]
-    AddSusMemfd { name: String },
-
     /// Spoofing the sus tcontext 'su' shown in avc log in kernel.
     ///
     /// * Important Notes *
@@ -236,6 +223,16 @@ pub enum SuSFSSubCommands {
         #[arg(action = ArgAction::Set, value_parser = treat_int_as_boolean)]
         enabled: bool,
     },
+
+    /// Replace the app package list whose UIDs are hidden from priority syscalls.
+    /// Pass an empty string to clear the filter. Only app UIDs 10000..19999 are supported.
+    #[command(name = "set_priority_uid_filter")]
+    SetPriorityUidFilter { apps: String },
+
+    /// Replace the comma-separated list of apps allowed to see SUS paths.
+    /// Only app UIDs 10000..19999 can be selected. Pass an empty string to clear.
+    #[command(name = "set_sus_path_uid_filter")]
+    SetSusPathUidFilter { apps: String },
 
     /// Show version, enabled_features, or variant info.
     Show {
@@ -401,14 +398,14 @@ pub fn run_main(args: SusfsArgs) -> Result<()> {
         SuSFSSubCommands::AddSusMap { path } => {
             api::add_sus_map(&path)?;
         }
-        SuSFSSubCommands::AddTryUmount { path, mode } => {
-            api::add_try_umount(&path, mode)?;
-        }
-        SuSFSSubCommands::AddSusMemfd { name } => {
-            api::add_sus_memfd(&name)?;
-        }
         SuSFSSubCommands::EnableAvcLogSpoofing { enabled } => {
             api::enable_avc_log_spoofing(enabled)?;
+        }
+        SuSFSSubCommands::SetPriorityUidFilter { apps } => {
+            api::set_priority_uid_filter(&apps)?;
+        }
+        SuSFSSubCommands::SetSusPathUidFilter { apps } => {
+            api::set_sus_path_uid_filter(&apps)?;
         }
         SuSFSSubCommands::Show { info_type } => match info_type {
             ShowType::Version => {
