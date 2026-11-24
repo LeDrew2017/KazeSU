@@ -57,18 +57,6 @@ const REPLACE_MARKER: &str = ".replace";
 /// `/system`. Only names the device actually exposes are used.
 const PARTITION_NAMES: &[&str] = &["vendor", "product", "system_ext", "odm"];
 
-/// Whether a directory is marked opaque (`trusted.overlay.opaque=y`) and must
-/// therefore replace its target instead of merging into it.
-pub fn read_opaque(path: &Path) -> Result<bool> {
-    const REPLACE_DIR_XATTR: &str = "trusted.overlay.opaque";
-    match extattr::lgetxattr(path, REPLACE_DIR_XATTR) {
-        Ok(value) => Ok(String::from_utf8_lossy(&value) == "y"),
-        Err(error) if error.0 == libc::ENODATA => Ok(false),
-        Err(error) => Err(anyhow::anyhow!(error))
-            .with_context(|| format!("read {REPLACE_DIR_XATTR} of {}", path.display())),
-    }
-}
-
 /// Magic Mount is enabled only when the enable flag file exists (disabled by
 /// default while the feature is turned off).
 pub fn is_enabled() -> bool {
@@ -145,11 +133,6 @@ pub fn set_backend(mode: &str) -> Result<()> {
         "Magic Mount backend set to {} (takes effect on next boot)",
         parsed.as_str()
     );
-    Ok(())
-}
-
-pub fn print_backend() -> Result<()> {
-    println!("{}", backend().as_str());
     Ok(())
 }
 

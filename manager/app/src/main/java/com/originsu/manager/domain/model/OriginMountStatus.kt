@@ -1,17 +1,23 @@
 package com.originsu.manager.domain.model
 
-/** The provider-selection mode persisted by OriginMount. */
+/** The provider-selection mode persisted by KazeMount. */
 enum class OriginMountMode(val id: String) {
     Auto("auto"),
-    Builtin("builtin"),
+    Overlay("overlay"),
+    Bind("bind"),
+    Kagami("kagami"),
     Metamodule("metamodule"),
     Zeromount("zeromount"),
     Nomount("nomount"),
     Off("off");
 
     companion object {
-        fun fromId(id: String): OriginMountMode =
-            entries.firstOrNull { it.id == id } ?: Auto
+        fun fromId(id: String): OriginMountMode = when (id) {
+            // "builtin" is the token written by earlier builds; ksud treats it as overlay.
+            "builtin", "overlayfs" -> Overlay
+            "kagami-mount" -> Kagami
+            else -> entries.firstOrNull { it.id == id } ?: Auto
+        }
     }
 }
 
@@ -48,7 +54,7 @@ data class OriginMountNoMountStatus(
         get() = deferredTo.isNotBlank()
 }
 
-/** Snapshot returned by `ksud origin-mount status --json`. */
+/** Snapshot returned by `ksud kaze-mount status --json`. */
 data class OriginMountStatus(
     val mode: OriginMountMode = OriginMountMode.Auto,
     val provider: String = "none",

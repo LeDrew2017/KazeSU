@@ -1689,7 +1689,7 @@ class KsuCliRepository(context: Context) {
         }
         val shell = getRootShell()
         val output = runCatching {
-            runCmd(shell, "${getKsuDaemonPath()} origin-mount status --json")
+            runCmd(shell, "${getKsuDaemonPath()} kaze-mount status --json")
         }.getOrDefault("")
         parseOriginMountStatus(output)
     }
@@ -1755,7 +1755,7 @@ class KsuCliRepository(context: Context) {
             if (!rootAvailable()) {
                 return@withContext false
             }
-            runCatching { execKsud("origin-mount set-mode ${mode.id}") }.getOrDefault(false)
+            runCatching { execKsud("kaze-mount set-mode ${mode.id}") }.getOrDefault(false)
         }
 
     /** Run the selected provider now. NoMount falls back to Magic Mount on failure. */
@@ -1763,7 +1763,7 @@ class KsuCliRepository(context: Context) {
         if (!rootAvailable()) {
             return@withContext false
         }
-        runCatching { execKsud("origin-mount mount") }.getOrDefault(false)
+        runCatching { execKsud("kaze-mount mount") }.getOrDefault(false)
     }
 
     suspend fun getNomountUidState(): NomountUidState = withContext(Dispatchers.IO) {

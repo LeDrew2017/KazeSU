@@ -132,10 +132,10 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("exec metamodule post-fs-data script failed: {e}");
     }
 
-    // OriginMount: run the selected provider (built-in executor, NoMount or a
+    // KazeMount: run the selected provider (built-in executor, NoMount or a
     // metamodule; never more than one) before the post-mount stage. Stands
     // down when the user selected `off` or no provider is active.
-    if let Err(e) = crate::android::origin_mount::run_boot_pass() {
+    if let Err(e) = crate::android::kaze_mount::run_boot_pass() {
         warn!("origin mount failed: {e:#}");
     }
 
@@ -149,11 +149,11 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("load system.prop failed: {e}");
     }
 
-    // Execute the metamodule mount script only when OriginMount selected it.
+    // Execute the metamodule mount script only when KazeMount selected it.
     // The built-in executor and NoMount already ran above, so this is the one
     // provider that mounts later in the boot.
-    if crate::android::origin_mount::should_run_metamodule_mount()
-        && let Err(e) = crate::android::origin_mount::run_metamodule_mount()
+    if crate::android::kaze_mount::should_run_metamodule_mount()
+        && let Err(e) = crate::android::kaze_mount::run_metamodule_mount()
     {
         warn!("execute metamodule mount failed: {e}");
     }

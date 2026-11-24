@@ -9,7 +9,7 @@ use crate::{
     android::{
         bootloop, debug, dynamic_manager, feature, init_event, ksucalls,
         module::{self, module_config, regenerate_preinit},
-        nomount, origin_mount, profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi,
+        kaze_mount, nomount, profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi,
         umount_config, utils, veil,
     },
     anykernel3::{self, Slot},
@@ -35,11 +35,11 @@ enum Commands {
         command: crate::android::sui::Command,
     },
 
-    /// Manage OriginMount provider selection and the built-in mount engines
-    #[command(name = "origin-mount")]
-    OriginMount {
+    /// Manage KazeMount provider selection and the built-in mount engines
+    #[command(name = "kaze-mount", alias = "origin-mount")]
+    KazeMount {
         #[command(subcommand)]
-        command: OriginMountCmd,
+        command: KazeMountCmd,
     },
 
     /// Manage the built-in NoMount backend
@@ -514,7 +514,7 @@ enum MagicMountCmd {
 }
 
 #[derive(clap::Subcommand, Debug)]
-enum OriginMountCmd {
+enum KazeMountCmd {
     /// print the selected mode, resolved provider and last boot result
     Status {
         /// emit a single JSON object instead of key=value lines
@@ -522,9 +522,9 @@ enum OriginMountCmd {
         json: bool,
     },
 
-    /// set the provider mode: auto | builtin | metamodule | zeromount | nomount | off
+    /// set the provider mode
     SetMode {
-        /// one of: auto, builtin, metamodule, zeromount, nomount, off
+        /// auto, overlay, bind, kagami, metamodule, zeromount, nomount, or off (builtin is an alias of overlay)
         mode: String,
     },
 
@@ -911,10 +911,10 @@ pub fn run() -> Result<()> {
     let result = match cli.command {
         Commands::AnyKernel3 { zip, slot } => anykernel3::flash(&zip, slot),
         Commands::Sui { command } => crate::android::sui::run(&command),
-        Commands::OriginMount { command } => match command {
-            OriginMountCmd::Status { json } => origin_mount::Status::collect().print(json),
-            OriginMountCmd::SetMode { mode } => origin_mount::set_mode(&mode),
-            OriginMountCmd::Mount => origin_mount::run_now(),
+        Commands::KazeMount { command } => match command {
+            KazeMountCmd::Status { json } => kaze_mount::Status::collect().print(json),
+            KazeMountCmd::SetMode { mode } => kaze_mount::set_mode(&mode),
+            KazeMountCmd::Mount => kaze_mount::run_now(),
         },
         Commands::Nomount { command } => match command {
             NomountCmd::Status { json } => {
@@ -993,13 +993,13 @@ pub fn run() -> Result<()> {
                 Module::Action { id } => module::run_action(&id),
                 Module::List => module::list_modules(),
                 Module::MagicMount { command } => match command {
-                    MagicMountCmd::Status => origin_mount::legacy_status(),
-                    MagicMountCmd::Enable => origin_mount::legacy_set_enabled(true),
-                    MagicMountCmd::Disable => origin_mount::legacy_set_enabled(false),
+                    MagicMountCmd::Status => kaze_mount::legacy_status(),
+                    MagicMountCmd::Enable => kaze_mount::legacy_set_enabled(true),
+                    MagicMountCmd::Disable => kaze_mount::legacy_set_enabled(false),
                     MagicMountCmd::Mount => module::magic_mount::run_magic_mount_forced(),
                     MagicMountCmd::Backend { mode } => match mode {
-                        Some(mode) => module::magic_mount::set_backend(&mode),
-                        None => module::magic_mount::print_backend(),
+                        Some(mode) => kaze_mount::legacy_set_backend(&mode),
+                        None => kaze_mount::legacy_print_backend(),
                     },
                     MagicMountCmd::Engine => {
                         module::mount_engine::Status::detect().print();

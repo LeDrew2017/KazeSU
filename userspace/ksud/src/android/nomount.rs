@@ -908,7 +908,7 @@ fn collect_plan_filtered(only: Option<&str>) -> Result<crate::android::nomount_p
         std::path::Path::new("/system"),
     );
     let fs = crate::android::nomount_plan::StdFs::new(
-        crate::android::module::magic_mount::read_opaque as fn(&std::path::Path) -> Result<bool>,
+        crate::android::kaze_mount::engine::read_opaque as fn(&std::path::Path) -> Result<bool>,
     );
     only.map_or_else(
         || crate::android::nomount_plan::collect_rules(&fs, &cfg),
@@ -928,7 +928,7 @@ pub fn collect_rule_counts() -> Result<Vec<(String, usize)>> {
         std::path::Path::new("/system"),
     );
     let fs = crate::android::nomount_plan::StdFs::new(
-        crate::android::module::magic_mount::read_opaque as fn(&std::path::Path) -> Result<bool>,
+        crate::android::kaze_mount::engine::read_opaque as fn(&std::path::Path) -> Result<bool>,
     );
     crate::android::nomount_plan::rule_counts(&fs, &cfg)
 }
@@ -976,7 +976,7 @@ pub fn hot_unload(id: &str) -> Result<usize> {
         std::path::Path::new("/system"),
     );
     let fs = crate::android::nomount_plan::StdFs::new(
-        crate::android::module::magic_mount::read_opaque as fn(&std::path::Path) -> Result<bool>,
+        crate::android::kaze_mount::engine::read_opaque as fn(&std::path::Path) -> Result<bool>,
     );
     let plan = crate::android::nomount_plan::collect_rules_ignoring_marks(&fs, &cfg, id)?;
     let paths: Vec<String> = plan
@@ -1480,9 +1480,9 @@ impl Status {
             error: None,
         };
         status.owns_injection = matches!(
-            crate::android::origin_mount::read_mode()
-                .unwrap_or(crate::android::origin_mount::Mode::Auto),
-            crate::android::origin_mount::Mode::Nomount
+            crate::android::kaze_mount::read_mode()
+                .unwrap_or(crate::android::kaze_mount::Mode::Auto),
+            crate::android::kaze_mount::Mode::Nomount
         ) && status.deferred_to.is_none()
             && status.probe.ready();
         if !status.probe.ready() {

@@ -1,9 +1,12 @@
-//! OriginMount: provider selection for module mounting.
+//! KazeMount: provider selection for module mounting.
 //!
 //! Exactly one provider injects the installed modules during a boot:
 //!
-//! - [`Provider::Builtin`] runs OriginSU's built-in Magic Mount executor
-//!   (overlayfs with a bind-mount fallback).
+//! - [`Provider::Overlay`] runs KazeMount's built-in overlayfs engine, falling
+//!   back to bind mounts if overlayfs cannot be set up.
+//! - [`Provider::Bind`] runs KazeMount's built-in bind-mount engine.
+//! - [`Provider::Kagami`] runs the Kagami magic-mount backend ported from
+//!   Rouyashiki/YukiSU, with its mount journal and per-app umount registration.
 //! - [`Provider::Metamodule`] runs the installed metamodule's `metamount.sh`
 //!   (Kagami, Hybrid Mount, ...).
 //! - [`Provider::Zeromount`] delegates to the installed ZeroMount metamodule
@@ -12,15 +15,14 @@
 //!   own redirection rules.
 //! - [`Provider::None`] leaves modules inert.
 //!
-//! The provider is selected by a persisted mode (`auto`, `builtin`,
-//! `metamodule`, `zeromount`, `nomount`, `off`). NoMount and the metamodule
-//! step aside on a failure so a bad driver never leaves a device with unmounted
-//! modules; a metamodule failure is reported and never silently replaced,
-//! because the user explicitly delegated mounting to it.
-//!
-//! The legacy `ksud module magic-mount` commands remain supported: they drive
-//! the same Magic Mount executor and keep the old enable flag in sync with the
-//! OriginMount mode.
+//! The provider is selected by a persisted mode (`auto`, `overlay`, `bind`,
+//! `kagami`, `metamodule`, `zeromount`, `nomount`, `off`). NoMount and the
+//! metamodule step aside on a failure so a bad driver never leaves a device
+//! with unmounted modules; a metamodule failure is reported and never silently
+//! replaced, because the user explicitly delegated mounting to it. The built-in
+//! overlay, bind and Kagami engines are implemented in [`engine`].
+
+pub mod engine;
 
 use std::fs;
 use std::path::Path;
@@ -31,7 +33,7 @@ use serde_json::json;
 
 use crate::{
     android::{
-        module::{magic_mount, metamodule, mount_engine},
+        module::{magic_mount, metamodule},
         nomount, utils,
     },
     defs,
@@ -41,7 +43,12 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Auto,
-    Builtin,
+    /// Built-in overlayfs mount (bind mounts as a runtime fallback).
+    Overlay,
+    /// Built-in bind mount.
+    Bind,
+    /// Kagami magic-mount backend (bind mounts, journal, per-app umount).
+    Kagami,
     Metamodule,
     Zeromount,
     Nomount,
@@ -54,7 +61,9 @@ impl Mode {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
-            Self::Builtin => "builtin",
+            Self::Overlay => "overlay",
+            Self::Bind => "bind",
+            Self::Kagami => "kagami",
             Self::Metamodule => "metamodule",
             Self::Zeromount => "zeromount",
             Self::Nomount => "nomount",
@@ -63,11 +72,16 @@ impl Mode {
     }
 
     /// Parse a config/CLI token; surrounding whitespace is ignored.
+    ///
+    /// The legacy `builtin` token used by earlier builds maps to [`Mode::Overlay`]
+    /// so an existing configuration keeps mounting after the upgrade.
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim() {
             "auto" => Some(Self::Auto),
-            "builtin" => Some(Self::Builtin),
+            "overlay" | "overlayfs" | "builtin" => Some(Self::Overlay),
+            "bind" => Some(Self::Bind),
+            "kagami" | "kagami-mount" => Some(Self::Kagami),
             "metamodule" => Some(Self::Metamodule),
             "zeromount" => Some(Self::Zeromount),
             "nomount" => Some(Self::Nomount),
@@ -80,7 +94,9 @@ impl Mode {
 /// The provider that performs this boot's module mounting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
-    Builtin,
+    Overlay,
+    Bind,
+    Kagami,
     Metamodule,
     Zeromount,
     Nomount,
@@ -92,18 +108,31 @@ impl Provider {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Builtin => "builtin",
+            Self::Overlay => "overlay",
+            Self::Bind => "bind",
+            Self::Kagami => "kagami",
             Self::Metamodule => "metamodule",
             Self::Zeromount => "zeromount",
             Self::Nomount => "nomount",
             Self::None => "none",
         }
     }
+
+    /// Built-in engine mechanism for this provider, if it is one.
+    #[must_use]
+    pub const fn engine(self) -> Option<engine::Backend> {
+        match self {
+            Self::Overlay => Some(engine::Backend::Overlay),
+            Self::Bind => Some(engine::Backend::Bind),
+            Self::Kagami => Some(engine::Backend::Kagami),
+            _ => None,
+        }
+    }
 }
 
-/// Read the configured mode. A missing file selects [`Mode::Auto`], which keeps
-/// the historical behavior: an enabled metamodule owns mounting, otherwise the
-/// legacy Magic Mount enable flag decides, otherwise nothing is mounted.
+/// Read the configured mode. A missing file selects [`Mode::Auto`], which
+/// keeps the historical behavior: an enabled metamodule owns mounting,
+/// otherwise KazeMount's built-in overlay engine runs.
 ///
 /// An unrecognised value falls back to `auto` with a warning. Other I/O errors
 /// are returned so an unreadable configuration never silently selects a
@@ -140,7 +169,7 @@ fn write_atomic(path: &Path, contents: &[u8]) -> Result<()> {
         ".{}.tmp",
         path.file_name()
             .and_then(std::ffi::OsStr::to_str)
-            .unwrap_or("origin_mount")
+            .unwrap_or("kaze_mount")
     ));
     fs::write(&temporary, contents)
         .with_context(|| format!("failed to write {}", temporary.display()))?;
@@ -170,17 +199,17 @@ pub fn write_mode(mode: Mode) -> Result<()> {
 pub fn set_mode(value: &str) -> Result<()> {
     let mode = Mode::parse(value).ok_or_else(|| {
         anyhow::anyhow!(
-            "unknown mount mode {value:?} (want auto/builtin/metamodule/zeromount/nomount/off)"
+            "unknown mount mode {value:?} (want auto/overlay/bind/kagami/metamodule/zeromount/nomount/off)"
         )
     })?;
     write_mode(mode)?;
     if mode == Mode::Nomount
         && let Err(error) = nomount::forget_inflight()
     {
-        warn!("OriginMount: could not clear the NoMount load guard: {error:#}");
+        warn!("KazeMount: could not clear the NoMount load guard: {error:#}");
     }
     info!(
-        "OriginMount mode set to {} (takes effect on next boot)",
+        "KazeMount mode set to {} (takes effect on next boot)",
         mode.as_str()
     );
     Ok(())
@@ -201,7 +230,7 @@ fn metamodule_state() -> (Option<String>, bool) {
 }
 
 /// Whether the active, enabled metamodule is ZeroMount and can run its mount
-/// pipeline. ZeroMount ships as a metamodule, not as an OriginSU LKM, so the
+/// pipeline. ZeroMount ships as a metamodule, not as an KazeSU LKM, so the
 /// provider only delegates to it.
 fn is_zeromount_metamodule() -> bool {
     let (id, enabled) = metamodule_state();
@@ -211,18 +240,19 @@ fn is_zeromount_metamodule() -> bool {
             .is_some_and(|path| path.join(defs::METAMODULE_MOUNT_SCRIPT).exists())
 }
 
-const fn provider_for(mode: Mode, metamodule_enabled: bool, magic_mount_enabled: bool) -> Provider {
+const fn provider_for(mode: Mode, metamodule_enabled: bool) -> Provider {
     match mode {
         Mode::Off => Provider::None,
         Mode::Metamodule => Provider::Metamodule,
         Mode::Zeromount => Provider::Zeromount,
         Mode::Nomount => Provider::Nomount,
-        Mode::Builtin => Provider::Builtin,
-        // Preserve the historical default: a metamodule wins, then the Magic
-        // Mount enable flag, otherwise mounting remains off.
+        Mode::Overlay => Provider::Overlay,
+        Mode::Bind => Provider::Bind,
+        Mode::Kagami => Provider::Kagami,
+        // Preserve the historical default: a metamodule wins, then the
+        // built-in overlay engine runs.
         Mode::Auto if metamodule_enabled => Provider::Metamodule,
-        Mode::Auto if magic_mount_enabled => Provider::Builtin,
-        Mode::Auto => Provider::None,
+        Mode::Auto => Provider::Overlay,
     }
 }
 
@@ -237,7 +267,7 @@ const fn provider_for(mode: Mode, metamodule_enabled: bool, magic_mount_enabled:
 pub fn resolve_provider() -> Result<Provider> {
     let mode = read_mode()?;
     let (_, metamodule_enabled) = metamodule_state();
-    let provider = provider_for(mode, metamodule_enabled, magic_mount::is_enabled());
+    let provider = provider_for(mode, metamodule_enabled);
     if provider == Provider::Nomount && nomount::installed_driver_module().is_some() {
         return Ok(Provider::Metamodule);
     }
@@ -339,7 +369,7 @@ fn clear_inflight() {
     if let Err(error) = fs::remove_file(defs::MOUNT_INFLIGHT)
         && error.kind() != std::io::ErrorKind::NotFound
     {
-        warn!("OriginMount: could not clear the in-flight record: {error}");
+        warn!("KazeMount: could not clear the in-flight record: {error}");
     }
 }
 
@@ -354,7 +384,7 @@ fn guard_reentrancy(boot_id: &str) -> Result<()> {
     });
     if existing.as_deref() == Some(boot_id) {
         bail!(
-            "OriginMount already ran in this boot ({boot_id}); refusing to inject again. \
+            "KazeMount already ran in this boot ({boot_id}); refusing to inject again. \
              Delete {} if the previous run was interrupted",
             defs::MOUNT_INFLIGHT
         );
@@ -389,7 +419,7 @@ fn record(
         warning_code,
     };
     if let Err(error) = write_runtime(&runtime) {
-        warn!("OriginMount: could not write the runtime record: {error:#}");
+        warn!("KazeMount: could not write the runtime record: {error:#}");
     }
 }
 
@@ -404,16 +434,16 @@ fn fallback_to_builtin(
     warning: String,
     warning_code: &'static str,
 ) -> Result<()> {
-    warn!("OriginMount: {warning}");
+    warn!("KazeMount: {warning}");
     write_inflight(boot_id, configured)?;
-    let result = magic_mount::run_magic_mount_forced();
+    let result = engine::run(engine::Backend::Auto);
     clear_inflight();
     match result {
         Ok(()) => {
             record(
                 boot_id,
                 configured,
-                Provider::Builtin,
+                Provider::Overlay,
                 "mounted",
                 None,
                 None,
@@ -425,7 +455,7 @@ fn fallback_to_builtin(
             record(
                 boot_id,
                 configured,
-                Provider::Builtin,
+                Provider::Overlay,
                 "failed",
                 None,
                 Some(format!("{error:#}")),
@@ -450,15 +480,15 @@ fn fallback_to_builtin(
 /// the built-in executor instead.
 pub fn run_boot_pass() -> Result<()> {
     if utils::has_magisk() {
-        warn!("OriginMount: Magisk detected, skip module mount");
+        warn!("KazeMount: Magisk detected, skip module mount");
         return Ok(());
     }
     if utils::is_safe_mode() {
-        warn!("OriginMount: safe mode, skip module mount");
+        warn!("KazeMount: safe mode, skip module mount");
         return Ok(());
     }
     if let Err(error) = utils::switch_mnt_ns(1) {
-        warn!("OriginMount: join init mount namespace failed (continuing anyway): {error:#}");
+        warn!("KazeMount: join init mount namespace failed (continuing anyway): {error:#}");
     }
 
     let mode = read_mode()?;
@@ -468,7 +498,7 @@ pub fn run_boot_pass() -> Result<()> {
 
     match configured {
         Provider::None => {
-            info!("OriginMount: mounting is disabled (mode={})", mode.as_str());
+            info!("KazeMount: mounting is disabled (mode={})", mode.as_str());
             record(
                 &boot_id,
                 configured,
@@ -481,7 +511,7 @@ pub fn run_boot_pass() -> Result<()> {
             Ok(())
         }
         Provider::Metamodule => {
-            info!("OriginMount: delegating module mounting to the metamodule");
+            info!("KazeMount: delegating module mounting to the metamodule");
             record(
                 &boot_id,
                 configured,
@@ -503,7 +533,7 @@ pub fn run_boot_pass() -> Result<()> {
                     "zeromount_fallback",
                 );
             }
-            info!("OriginMount: delegating module mounting to ZeroMount");
+            info!("KazeMount: delegating module mounting to ZeroMount");
             record(
                 &boot_id,
                 configured,
@@ -515,29 +545,32 @@ pub fn run_boot_pass() -> Result<()> {
             );
             Ok(())
         }
-        Provider::Builtin => {
-            write_inflight(&boot_id, Provider::Builtin)?;
-            let result = magic_mount::run_magic_mount_forced();
+        Provider::Overlay | Provider::Bind | Provider::Kagami => {
+            let Some(backend) = configured.engine() else {
+                unreachable!("built-in provider without an engine")
+            };
+            write_inflight(&boot_id, configured)?;
+            let result = engine::run(backend);
             clear_inflight();
             match result {
                 Ok(()) => {
                     record(
                         &boot_id,
                         configured,
-                        Provider::Builtin,
+                        configured,
                         "mounted",
                         None,
                         None,
                         None,
                     );
-                    info!("OriginMount: built-in Magic Mount completed");
+                    info!("KazeMount: built-in {} engine completed", configured.as_str());
                     Ok(())
                 }
                 Err(error) => {
                     record(
                         &boot_id,
                         configured,
-                        Provider::Builtin,
+                        configured,
                         "failed",
                         None,
                         Some(format!("{error:#}")),
@@ -568,19 +601,19 @@ pub fn run_boot_pass() -> Result<()> {
                         None,
                     );
                     for warning in &injection.warnings {
-                        warn!("OriginMount: NoMount: {warning}");
+                        warn!("KazeMount: NoMount: {warning}");
                     }
                     info!(
-                        "OriginMount: NoMount applied {} rule(s), removed {}",
+                        "KazeMount: NoMount applied {} rule(s), removed {}",
                         injection.applied, injection.removed
                     );
                     Ok(())
                 }
                 Err(error) => {
                     warn!(
-                        "OriginMount: NoMount failed ({error:#}); falling back to the built-in engine"
+                        "KazeMount: NoMount failed ({error:#}); falling back to the built-in engine"
                     );
-                    let fallback = magic_mount::run_magic_mount_forced();
+                    let fallback = engine::run(engine::Backend::Auto);
                     let warning = format!(
                         "NoMount unavailable ({error:#}); mounted with the built-in engine"
                     );
@@ -589,7 +622,7 @@ pub fn run_boot_pass() -> Result<()> {
                             record(
                                 &boot_id,
                                 configured,
-                                Provider::Builtin,
+                                Provider::Overlay,
                                 "mounted",
                                 None,
                                 None,
@@ -601,7 +634,7 @@ pub fn run_boot_pass() -> Result<()> {
                             record(
                                 &boot_id,
                                 configured,
-                                Provider::Builtin,
+                                Provider::Overlay,
                                 "failed",
                                 None,
                                 Some(format!("{fallback_error:#}")),
@@ -683,7 +716,7 @@ pub fn run_now() -> Result<()> {
 // Status and legacy compatibility
 // ---------------------------------------------------------------------------
 
-/// Compact NoMount summary used by the OriginMount status output.
+/// Compact NoMount summary used by the KazeMount status output.
 #[derive(Debug, Clone, Default)]
 pub struct NomountSummary {
     pub driver_state: String,
@@ -699,14 +732,12 @@ pub struct NomountSummary {
     pub error: Option<String>,
 }
 
-/// Snapshot shown by `ksud origin-mount status` and the manager.
+/// Snapshot shown by `ksud kaze-mount status` and the manager.
 #[derive(Debug, Clone)]
 pub struct Status {
     pub mode: Mode,
     pub provider: Provider,
     pub metamodule_id: String,
-    pub magic_mount_enabled: bool,
-    pub backend: &'static str,
     pub kernel_engines: Vec<String>,
     pub runtime: Option<Runtime>,
     pub nomount: Option<NomountSummary>,
@@ -737,10 +768,7 @@ impl Status {
             mode,
             provider,
             metamodule_id: metamodule_id.unwrap_or_default(),
-            magic_mount_enabled: magic_mount::is_enabled(),
-            backend: magic_mount::backend().as_str(),
-            kernel_engines: mount_engine::Status::detect()
-                .kernel_engines
+            kernel_engines: kernel_engines()
                 .into_iter()
                 .map(ToString::to_string)
                 .collect(),
@@ -763,8 +791,6 @@ impl Status {
                 "mode": self.mode.as_str(),
                 "provider": self.provider.as_str(),
                 "metamodule": self.metamodule_id,
-                "magic_mount": self.magic_mount_enabled,
-                "backend": self.backend,
                 "kernel": self.kernel_engines,
                 "runtime": self.runtime.as_ref().map(|runtime| json!({
                     "boot_id": runtime.boot_id,
@@ -790,46 +816,34 @@ impl Status {
                     "error": nomount.error,
                 })),
             });
-            writeln!(out, "{payload}").context("failed to write origin-mount status")?;
+            writeln!(out, "{payload}").context("failed to write kaze-mount status")?;
         } else {
-            writeln!(out, "schema_version=1").context("failed to write origin-mount status")?;
+            writeln!(out, "schema_version=1").context("failed to write kaze-mount status")?;
             writeln!(out, "mode={}", self.mode.as_str())
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "provider={}", self.provider.as_str())
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "metamodule={}", self.metamodule_id)
-                .context("failed to write origin-mount status")?;
-            writeln!(
-                out,
-                "magic_mount={}",
-                if self.magic_mount_enabled {
-                    "enabled"
-                } else {
-                    "disabled"
-                }
-            )
-            .context("failed to write origin-mount status")?;
-            writeln!(out, "backend={}", self.backend)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "kernel={}", self.kernel_engines.join(","))
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             let runtime = self.runtime.clone().unwrap_or_default();
             writeln!(out, "runtime_boot_id={}", runtime.boot_id)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "runtime_provider={}",
                 runtime.provider.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "runtime_configured={}",
                 runtime.configured.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(out, "runtime_result={}", runtime.result)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "runtime_targets={}",
@@ -837,81 +851,135 @@ impl Status {
                     .target_count
                     .map_or_else(String::new, |count| count.to_string())
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "runtime_error={}",
                 runtime.error.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "runtime_warning={}",
                 runtime.warning.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "runtime_warning_code={}",
                 runtime.warning_code.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             let nomount = self.nomount.clone().unwrap_or_default();
             writeln!(out, "nomount_driver_state={}", nomount.driver_state)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "nomount_driver_version={}", nomount.driver_version)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "nomount_rules_expected={}", nomount.rules_expected)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "nomount_rules_applied={}", nomount.rules_applied)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "nomount_uid_count={}", nomount.uid_count)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(out, "nomount_isolated={}", nomount.isolated_blocked)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "nomount_deferred_to={}",
                 nomount.deferred_to.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(out, "nomount_owns_injection={}", nomount.owns_injection)
-                .context("failed to write origin-mount status")?;
+                .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "nomount_unavailable_code={}",
                 nomount.unavailable_code.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "nomount_unavailable_detail={}",
                 nomount.unavailable_detail.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
             writeln!(
                 out,
                 "nomount_error={}",
                 nomount.error.as_deref().unwrap_or("")
             )
-            .context("failed to write origin-mount status")?;
+            .context("failed to write kaze-mount status")?;
         }
-        out.flush().context("failed to flush origin-mount status")
+        out.flush().context("failed to flush kaze-mount status")
     }
 }
 
-/// Legacy `magic-mount status` output used by the existing manager toggle.
+/// Kernel engines whose driver markers are present. These are hints only: a
+/// driver can be loaded without controlling module mounting.
+fn kernel_engines() -> Vec<&'static str> {
+    [
+        ("/dev/zeromount", "zeromount"),
+        ("/sys/module/kasumi_lkm", "kasumi"),
+        ("/sys/module/nomount", "nomount"),
+    ]
+    .into_iter()
+    .filter_map(|(marker, id)| Path::new(marker).exists().then_some(id))
+    .collect()
+}
+
+/// Legacy `module magic-mount status`: reports whether module mounting is
+/// enabled by the old flag or by a built-in provider.
 ///
 /// # Errors
-/// Returns an error when writing to stdout fails.
+/// Returns an error when the mode cannot be read.
 pub fn legacy_status() -> Result<()> {
     let mode = read_mode()?;
-    let enabled = magic_mount::is_enabled() || mode == Mode::Builtin;
+    let enabled = magic_mount::is_enabled()
+        || matches!(mode, Mode::Overlay | Mode::Bind | Mode::Kagami);
     println!("{}", if enabled { "enabled" } else { "disabled" });
     Ok(())
 }
 
-/// Legacy `magic-mount enable/disable`, keeping the OriginMount mode coherent.
+/// Legacy `module magic-mount backend` (read): the built-in engine the current
+/// mode uses, as `auto`, `overlay` or `bind`.
+///
+/// # Errors
+/// Returns an error when the mode cannot be read.
+pub fn legacy_print_backend() -> Result<()> {
+    let backend = match read_mode()? {
+        Mode::Overlay => "overlay",
+        Mode::Bind => "bind",
+        _ => magic_mount::backend().as_str(),
+    };
+    println!("{backend}");
+    Ok(())
+}
+
+/// Legacy `module magic-mount backend <auto|overlay|bind>`: records the old
+/// backend flag and moves the KazeMount mode with it, but only while a
+/// built-in engine owns mounting. A metamodule, NoMount or an explicit `off`
+/// is never overridden by this old command.
+///
+/// # Errors
+/// Returns an error when the backend is unknown or cannot be written.
+pub fn legacy_set_backend(backend: &str) -> Result<()> {
+    magic_mount::set_backend(backend)?;
+    let target = match backend.trim().to_ascii_lowercase().as_str() {
+        "overlay" => Mode::Overlay,
+        "bind" => Mode::Bind,
+        _ => Mode::Auto,
+    };
+    if matches!(
+        read_mode()?,
+        Mode::Auto | Mode::Overlay | Mode::Bind
+    ) {
+        write_mode(target)?;
+    }
+    Ok(())
+}
+
+/// Legacy `module magic-mount enable/disable`, keeping the KazeMount mode
+/// coherent with the old enable flag.
 ///
 /// # Errors
 /// Returns an error when the flag or mode cannot be written.
@@ -922,7 +990,7 @@ pub fn legacy_set_enabled(enabled: bool) -> Result<()> {
         if mode == Mode::Off {
             write_mode(Mode::Auto)?;
         }
-    } else if mode == Mode::Builtin {
+    } else if matches!(mode, Mode::Overlay | Mode::Bind | Mode::Kagami) {
         write_mode(Mode::Off)?;
     }
     Ok(())
@@ -936,7 +1004,9 @@ mod tests {
     fn mode_round_trips() {
         for mode in [
             Mode::Auto,
-            Mode::Builtin,
+            Mode::Overlay,
+            Mode::Bind,
+            Mode::Kagami,
             Mode::Metamodule,
             Mode::Zeromount,
             Mode::Nomount,
@@ -944,19 +1014,21 @@ mod tests {
         ] {
             assert_eq!(Mode::parse(mode.as_str()), Some(mode));
         }
+        assert_eq!(Mode::parse(" builtin "), Some(Mode::Overlay));
+        assert_eq!(Mode::parse("overlayfs"), Some(Mode::Overlay));
+        assert_eq!(Mode::parse("kagami"), Some(Mode::Kagami));
         assert_eq!(Mode::parse(" nope "), None);
     }
 
     #[test]
     fn auto_preserves_legacy_precedence() {
-        assert_eq!(provider_for(Mode::Auto, true, true), Provider::Metamodule);
-        assert_eq!(provider_for(Mode::Auto, false, true), Provider::Builtin);
-        assert_eq!(provider_for(Mode::Auto, false, false), Provider::None);
-        assert_eq!(provider_for(Mode::Nomount, true, true), Provider::Nomount);
-        assert_eq!(
-            provider_for(Mode::Zeromount, true, true),
-            Provider::Zeromount
-        );
-        assert_eq!(provider_for(Mode::Off, true, true), Provider::None);
+        assert_eq!(provider_for(Mode::Auto, true), Provider::Metamodule);
+        assert_eq!(provider_for(Mode::Auto, false), Provider::Overlay);
+        assert_eq!(provider_for(Mode::Nomount, true), Provider::Nomount);
+        assert_eq!(provider_for(Mode::Zeromount, true), Provider::Zeromount);
+        assert_eq!(provider_for(Mode::Overlay, true), Provider::Overlay);
+        assert_eq!(provider_for(Mode::Bind, true), Provider::Bind);
+        assert_eq!(provider_for(Mode::Kagami, true), Provider::Kagami);
+        assert_eq!(provider_for(Mode::Off, true), Provider::None);
     }
 }

@@ -94,8 +94,16 @@ mod android {
     /// Scratch dir for Magic Mount overlay workdirs (same fs as /data upper layers).
     pub const MAGIC_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "magic_mount/");
 
-    // OriginMount provider selection and runtime records.
-    /// Selected provider: one of `auto`, `builtin`, `metamodule`, `zeromount`, `nomount`, `off`.
+    /// Scratch directory shared by KazeMount's overlay and bind staging engines.
+    pub const KAZE_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "kaze_mount/");
+
+    /// Kagami provider mount journal. Entries are scoped to one boot and carry
+    /// the mount id so teardown never detaches a recycled path.
+    pub const KAZE_MOUNT_KAGAMI_JOURNAL: &str = concatcp!(WORKING_DIR, "kaze_mount/kagami_mounts");
+
+    // KazeMount provider selection and runtime records. The paths intentionally
+    // match OriginMount so upgrades retain the selected provider and diagnostics.
+    /// Selected provider: one of `auto`, `overlay`, `bind`, `kagami`, `metamodule`, `zeromount`, `nomount`, `off`.
     pub const MOUNT_MODE_FILE: &str = concatcp!(WORKING_DIR, "mount_mode");
     /// Result of the last boot's mounting attempt.
     pub const MOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "mount_runtime");

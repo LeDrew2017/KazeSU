@@ -153,7 +153,9 @@ fun OriginMountScreen() {
     val modeLabels = modeOptions.map { option ->
         when (option) {
             OriginMountMode.Auto -> stringResource(R.string.origin_mount_mode_auto)
-            OriginMountMode.Builtin -> stringResource(R.string.origin_mount_mode_builtin)
+            OriginMountMode.Overlay -> stringResource(R.string.origin_mount_mode_overlay)
+            OriginMountMode.Bind -> stringResource(R.string.origin_mount_mode_bind)
+            OriginMountMode.Kagami -> stringResource(R.string.origin_mount_mode_kagami)
             OriginMountMode.Metamodule -> stringResource(R.string.origin_mount_mode_metamodule)
             OriginMountMode.Zeromount -> stringResource(R.string.origin_mount_mode_zeromount)
             OriginMountMode.Nomount -> stringResource(R.string.origin_mount_mode_nomount)
@@ -162,7 +164,9 @@ fun OriginMountScreen() {
     }
     val modeSummary = when (mode) {
         OriginMountMode.Auto -> stringResource(R.string.origin_mount_mode_summary_auto)
-        OriginMountMode.Builtin -> stringResource(R.string.origin_mount_mode_summary_builtin)
+        OriginMountMode.Overlay -> stringResource(R.string.origin_mount_mode_summary_overlay)
+        OriginMountMode.Bind -> stringResource(R.string.origin_mount_mode_summary_bind)
+        OriginMountMode.Kagami -> stringResource(R.string.origin_mount_mode_summary_kagami)
         OriginMountMode.Metamodule -> stringResource(R.string.origin_mount_mode_summary_metamodule)
         OriginMountMode.Zeromount -> stringResource(R.string.origin_mount_mode_summary_zeromount)
         OriginMountMode.Nomount -> stringResource(R.string.origin_mount_mode_summary_nomount)
@@ -174,16 +178,12 @@ fun OriginMountScreen() {
     val magicMountHandoffOwner = status?.metamoduleId
         ?.takeIf { it.isNotBlank() }
         ?: resolvedProviderLabel
-    // Magic Mount only runs for Auto/Builtin, or as the NoMount fallback. The
-    // enable flag only influences Auto; Builtin forces it on and Nomount only
-    // uses the engine when its own provider fails.
-    val showMagicMountSection = mode == OriginMountMode.Auto ||
-        mode == OriginMountMode.Builtin ||
-        mode == OriginMountMode.Nomount ||
-        status?.provider == "builtin"
-    val showMagicMountSwitch = mode == OriginMountMode.Auto ||
-        mode == OriginMountMode.Builtin
-    val magicMountForced = mode == OriginMountMode.Builtin
+    // The legacy Magic Mount enable flag and backend picker are gone: the
+    // provider mode (Auto, Overlay, Bind, Kagami) now selects the built-in
+    // engine directly, so these sections stay hidden.
+    val showMagicMountSection = false
+    val showMagicMountSwitch = false
+    val magicMountForced = false
     val magicMountFallbackOnly = mode == OriginMountMode.Nomount
     val runtimeText = runtimeSummary(runtime, status, knownValue)
     val nomountLabel = stringResource(R.string.origin_mount_provider_nomount)
@@ -215,10 +215,18 @@ fun OriginMountScreen() {
     } else {
         knownValue
     }
-    val exclusionsText = stringResource(
+    val exclusionsStored = stringResource(
         R.string.origin_mount_nomount_uids_summary,
         uiState.uidState.stored.size,
     )
+    val exclusionsText = if (uiState.uidState.active.isEmpty()) {
+        exclusionsStored
+    } else {
+        exclusionsStored + "\n" + stringResource(
+            R.string.origin_mount_nomount_active_uids,
+            uiState.uidState.active.joinToString(", "),
+        )
+    }
     val runtimeFailed = runtime?.result == "failed"
     val modeLabel = modeLabels[modeOptions.indexOf(mode).coerceAtLeast(0)]
     val backendLabel = when (status?.backend) {
@@ -806,7 +814,9 @@ private fun OriginMountHeroCard(
 
 @Composable
 private fun providerLabel(provider: String, unknown: String): String = when (provider) {
-    "builtin" -> stringResource(R.string.origin_mount_provider_builtin)
+    "overlay", "builtin" -> stringResource(R.string.origin_mount_provider_overlay)
+    "bind" -> stringResource(R.string.origin_mount_provider_bind)
+    "kagami" -> stringResource(R.string.origin_mount_provider_kagami)
     "metamodule" -> stringResource(R.string.origin_mount_provider_metamodule)
     "zeromount" -> stringResource(R.string.origin_mount_provider_zeromount)
     "nomount" -> stringResource(R.string.origin_mount_provider_nomount)
