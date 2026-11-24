@@ -1709,4 +1709,6 @@
     <string name="susfs_sus_path_uid_filter_description">Select apps that can see paths hidden by SUSFS. Other ordinary apps cannot see these paths. Only app UIDs 10000–19999 can be selected. Changes take effect immediately and are restored after reboot. Apps sharing a UID are affected together.</string>
     <string name="susfs_uid_filter_search">Search apps</string>
     <string name="susfs_uid_filter_loading">Loading apps…</string>
+    <string name="settings_stealth">Stealth mode</string>
+    <string name="settings_stealth_summary">Make the manager app look uninstalled to other apps. Root keeps working; turn it off here any time.</string>
 </resources>

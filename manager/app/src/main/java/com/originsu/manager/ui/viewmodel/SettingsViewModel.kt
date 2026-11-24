@@ -47,6 +47,7 @@ import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
 import com.originsu.manager.domain.usecase.SetRootGateEnabledUseCase
 import com.originsu.manager.domain.usecase.SetSelinuxHideEnabledUseCase
+import com.originsu.manager.domain.usecase.SetStealthEnabledUseCase
 import com.originsu.manager.domain.usecase.SetSuEnabledUseCase
 import com.originsu.manager.domain.usecase.UpdateAppearanceUseCase
 import com.originsu.manager.domain.usecase.UpdatePlatformSettingUseCase
@@ -131,6 +132,7 @@ data class SettingsUiState(
     val isSuLogEnabled: Boolean = false,
     val veilStatus: String = "",
     val isVeilEnabled: Boolean = false,
+    val isStealthEnabled: Boolean = false,
     val isGrantToastEnabled: Boolean = false,
     val isTempGrantEnabled: Boolean = false,
     val overlayGranted: Boolean = false,
@@ -211,6 +213,7 @@ sealed interface SettingsUiAction {
     data class SetSelinuxPermissive(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetVeil(val enabled: Boolean) : SettingsUiAction
+    data class SetStealth(val enabled: Boolean) : SettingsUiAction
     data class SetGrantToast(val enabled: Boolean) : SettingsUiAction
     data class SetTempGrant(val enabled: Boolean) : SettingsUiAction
     data class SetSuPrompt(val enabled: Boolean) : SettingsUiAction
@@ -278,6 +281,7 @@ class SettingsViewModel(
     private val setKernelUmountEnabled: SetKernelUmountEnabledUseCase,
     private val setSuLogEnabled: ConfigureSuLogUseCase,
     private val setVeilEnabled: ConfigureVeilUseCase,
+    private val setStealthEnabled: SetStealthEnabledUseCase,
     private val grantToastRepository: GrantToastRepository,
     private val suRequestRepository: SuRequestRepository,
     private val appShortcutsRepository: AppShortcutsRepository,
@@ -357,6 +361,7 @@ class SettingsViewModel(
                     isSuLogEnabled = features.suLogEnabled,
                     veilStatus = platform.veilStatus,
                     isVeilEnabled = features.veilEnabled,
+                    isStealthEnabled = features.stealthEnabled,
                     isGrantToastEnabled = grantToastRepository.isToastEnabled(),
                     isTempGrantEnabled = grantToastRepository.isTempGrantEnabled(),
                     overlayGranted = grantToastRepository.hasOverlayPermission(),
@@ -830,6 +835,14 @@ class SettingsViewModel(
         }
     }
 
+    fun handleStealthChange(checked: Boolean) {
+        viewModelScope.launch {
+            if (setStealthEnabled(checked)) {
+                mutableState.update { it.copy(isStealthEnabled = checked) }
+            }
+        }
+    }
+
     fun handleVeilChange(checked: Boolean) {
         viewModelScope.launch {
             if (setVeilEnabled(checked)) mutableState.update { it.copy(isVeilEnabled = checked) }
@@ -1044,6 +1057,7 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetSelinuxPermissive -> handleSelinuxPermissiveChange(action.enabled)
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
             is SettingsUiAction.SetVeil -> handleVeilChange(action.enabled)
+            is SettingsUiAction.SetStealth -> handleStealthChange(action.enabled)
             is SettingsUiAction.SetGrantToast -> handleGrantToastChange(action.enabled)
             is SettingsUiAction.SetTempGrant -> handleTempGrantChange(action.enabled)
             is SettingsUiAction.SetSuPrompt -> handleSuPromptChange(action.enabled)

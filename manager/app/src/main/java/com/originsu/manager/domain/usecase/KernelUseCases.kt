@@ -30,6 +30,10 @@ class ConfigureVeilUseCase(private val repository: KernelRepository) {
     suspend operator fun invoke(enabled: Boolean) = repository.setVeilEnabled(enabled)
 }
 
+class SetStealthEnabledUseCase(private val repository: KernelRepository) {
+    suspend operator fun invoke(enabled: Boolean) = repository.setStealthEnabled(enabled)
+}
+
 class SetSelinuxHideEnabledUseCase(private val repository: KernelRepository) {
     suspend operator fun invoke(enabled: Boolean) = repository.setSelinuxHideEnabled(enabled)
 }

@@ -153,6 +153,9 @@ object Natives {
      */
     external fun openSulogStream(): ParcelFileDescriptor?
 
+    external fun isStealthEnabled(): Boolean
+    external fun setStealthEnabled(enabled: Boolean): Boolean
+
     external fun isVeilEnabled(): Boolean
     external fun setVeilEnabled(enabled: Boolean): Boolean
 

@@ -32,6 +32,7 @@ import androidx.compose.material.icons.twotone.BugReport
 import androidx.compose.material.icons.twotone.Close
 import androidx.compose.material.icons.twotone.Dashboard
 import androidx.compose.material.icons.twotone.Delete
+import androidx.compose.material.icons.twotone.VisibilityOff
 import androidx.compose.material.icons.twotone.DeleteForever
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.FolderOff
@@ -281,6 +282,10 @@ fun SettingsPage(bottomPadding: Dp) {
         toolsTileTitle, titleSendLog, titleDynamicManager, descDynamicManager, titleUmountManager,
         descUmountManager, titleTuning, descTuning, titleUninstall, titleTerminal,
     )
+    val matchStealthTile = matches(
+        stringResource(R.string.settings_stealth),
+        stringResource(R.string.settings_stealth_summary),
+    )
     val matchAboutTile = matches(aboutTitle)
     val matchBootloopAlert = matches(
         stringResource(R.string.settings_bootloop_rescued_title),
@@ -290,6 +295,7 @@ fun SettingsPage(bottomPadding: Dp) {
     val hasAnyMatch = matchOriginTile ||
         (homeState.systemStatus.isFullFeatured && matchCoreTile) ||
         matchMagicMountTile || matchUpdatesTile || matchToolsTile || matchAboutTile ||
+        (homeState.systemStatus.ksuVersion != null && matchStealthTile) ||
         (uiState.bootloopRescued && matchBootloopAlert)
 
     LaunchedEffect(Unit) {
@@ -525,6 +531,27 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             },
                         )
+                    }
+                }
+
+                // ----- Stealth (kept outside the full-featured gate: while it is on,
+                // the kernel hides the manager flag, so the switch must stay reachable) ---
+                if (homeState.systemStatus.ksuVersion != null && matchStealthTile) {
+                    item(
+                        key = "stealth",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        BentoCard {
+                            BentoToggleRow(
+                                icon = Icons.TwoTone.VisibilityOff,
+                                title = stringResource(R.string.settings_stealth),
+                                checked = uiState.isStealthEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(SettingsUiAction.SetStealth(enabled))
+                                },
+                            )
+                            BentoCaption(stringResource(R.string.settings_stealth_summary))
+                        }
                     }
                 }
 

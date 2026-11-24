@@ -357,6 +357,20 @@ int get_sulog_fd(void) {
     return ret;
 }
 
+bool is_stealth_enabled() {
+    struct ksu_stealth_cmd cmd = {0};
+    if (ksuctl(KSU_IOCTL_STEALTH_GET, &cmd) != 0) {
+        return false;
+    }
+    return cmd.enabled != 0;
+}
+
+bool set_stealth_enabled(bool enabled) {
+    struct ksu_stealth_cmd cmd = {0};
+    cmd.enabled = enabled ? 1 : 0;
+    return ksuctl(KSU_IOCTL_STEALTH_SET, &cmd) == 0;
+}
+
 bool is_veil_enabled() {
     uint64_t value = 0;
     bool supported = false;

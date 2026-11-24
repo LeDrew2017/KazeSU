@@ -56,6 +56,10 @@ bool clear_dynamic_manager();
 bool set_su_enabled(bool enabled);
 bool is_su_enabled();
 
+// KazeSU stealth mode (hides the manager flag from GET_INFO)
+bool is_stealth_enabled();
+bool set_stealth_enabled(bool enabled);
+
 // Root Gate (global reversible suspension of root grants)
 bool is_root_gate_enabled(void);
 bool set_root_gate_enabled(bool enabled);

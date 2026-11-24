@@ -71,4 +71,5 @@ data class KernelFeatureSettings(
     val veilEnabled: Boolean,
     val defaultUmountModules: Boolean,
     val rootGateEnabled: Boolean,
+    val stealthEnabled: Boolean = false,
 )

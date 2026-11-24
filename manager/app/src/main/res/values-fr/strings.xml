@@ -615,4 +615,6 @@
     <string name="susfs_sus_path_uid_filter_description">Sélectionner les applications autorisées à voir les chemins masqués par SUSFS. Les autres applications ordinaires ne peuvent pas voir ces chemins. Seules les applications ayant un UID compris entre 10000 et 19999 peuvent être sélectionnées. Les modifications prennent effet immédiatement et sont rétablies après un redémarrage. Les applications partageant un même UID sont toutes affectées simultanément.</string>
     <string name="susfs_uid_filter_search">Rechercher des applications</string>
     <string name="susfs_uid_filter_loading">Chargement des applications…</string>
+    <string name="settings_stealth">Mode furtif</string>
+    <string name="settings_stealth_summary">Fait paraître le gestionnaire comme non installé pour les autres applications. Le root continue de fonctionner ; désactivez-le ici à tout moment.</string>
 </resources>

@@ -82,6 +82,7 @@ class KernelRepository(
                 false
             ),
             rootGateEnabled = runCatching { Natives.isRootGateEnabled() }.getOrDefault(true),
+            stealthEnabled = runCatching { Natives.isStealthEnabled() }.getOrDefault(false),
         )
     }
 
@@ -96,6 +97,10 @@ class KernelRepository(
     suspend fun setSuLogEnabled(enabled: Boolean): Boolean = saveFeature {
         Natives.setSuLogEnabled(enabled)
     }
+
+    // The kernel persists this itself (/data/adb/ksu/stealth), so no "feature save" is needed.
+    suspend fun setStealthEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) { Natives.setStealthEnabled(enabled) }
 
     suspend fun setVeilEnabled(enabled: Boolean): Boolean = saveFeature {
         Natives.setVeilEnabled(enabled)

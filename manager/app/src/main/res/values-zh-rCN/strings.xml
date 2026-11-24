@@ -675,4 +675,6 @@
     <string name="susfs_sus_path_uid_filter_description">选择可以看见 SUSFS 隐藏路径的应用。其他普通应用无法看见这些路径。仅可选择 UID 10000–19999 的应用，修改立即生效并在重启后恢复。共享 UID 的应用会一同受到影响。</string>
     <string name="susfs_uid_filter_search">搜索应用</string>
     <string name="susfs_uid_filter_loading">正在加载应用…</string>
+    <string name="settings_stealth">隐身模式</string>
+    <string name="settings_stealth_summary">让其他应用认为管理器未安装。Root 仍然可用；可随时在此关闭。</string>
 </resources>

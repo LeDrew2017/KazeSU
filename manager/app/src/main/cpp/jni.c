@@ -681,6 +681,14 @@ NativeBridge(setSelinuxHideEnabled, jint, jboolean enabled) {
     return set_selinux_hide_enabled(enabled);
 }
 
+NativeBridgeNP(isStealthEnabled, jboolean) {
+    return is_stealth_enabled();
+}
+
+NativeBridge(setStealthEnabled, jboolean, jboolean enabled) {
+    return set_stealth_enabled(enabled);
+}
+
 NativeBridge(getUserName, jstring, jint uid) {
     struct passwd *pw = getpwuid((uid_t) uid);
     if (pw && pw->pw_name && pw->pw_name[0] != '\0') {

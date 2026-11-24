@@ -179,6 +179,7 @@ import com.originsu.manager.domain.usecase.SetManualDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.SetModuleEnabledUseCase
 import com.originsu.manager.domain.usecase.SetModuleRemovedUseCase
 import com.originsu.manager.domain.usecase.SetSelinuxHideEnabledUseCase
+import com.originsu.manager.domain.usecase.SetStealthEnabledUseCase
 import com.originsu.manager.domain.usecase.SetStringPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetStringSetPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetSuEnabledUseCase
@@ -439,6 +440,7 @@ val useCaseModule = module {
     factoryOf(::ConfigureSuLogUseCase)
     factoryOf(::ConfigureVeilUseCase)
     factoryOf(::SetSelinuxHideEnabledUseCase)
+    factoryOf(::SetStealthEnabledUseCase)
     factoryOf(::SetDefaultUmountModulesUseCase)
     factoryOf(::SetRootGateEnabledUseCase)
     factoryOf(::IsLateLoadModeUseCase)
