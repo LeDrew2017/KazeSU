@@ -52,6 +52,11 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.coroutines.resume
 
+/** Like [JSONObject.optString] but treats a JSON null as empty instead of the text "null". */
+private fun JSONObject.optText(name: String, fallback: String = ""): String =
+    if (isNull(name)) fallback else optString(name, fallback)
+
+
 /** A Zygisk module discovered under /data/adb/modules. */
 data class OriginZygiskModule(
     val id: String,
@@ -1704,46 +1709,46 @@ class KsuCliRepository(context: Context) {
             val runtimeJson = root.optJSONObject("runtime")
             val nomountJson = root.optJSONObject("nomount")
             OriginMountStatus(
-                mode = OriginMountMode.fromId(root.optString("mode", "auto")),
-                provider = root.optString("provider", "none"),
-                metamoduleId = root.optString("metamodule"),
+                mode = OriginMountMode.fromId(root.optText("mode", "auto")),
+                provider = root.optText("provider", "none"),
+                metamoduleId = root.optText("metamodule"),
                 magicMountEnabled = root.optBoolean("magic_mount", false),
-                backend = root.optString("backend", "auto")
+                backend = root.optText("backend", "auto")
                     .takeIf { it in MAGIC_MOUNT_BACKENDS } ?: "auto",
                 kernelEngines = root.optJSONArray("kernel")?.let { array ->
                     (0 until array.length()).mapNotNull { index ->
-                        array.optString(index).takeIf { it.isNotBlank() }
+                        (if (array.isNull(index)) "" else array.optString(index)).takeIf { it.isNotBlank() }
                     }
                 }.orEmpty(),
                 runtime = runtimeJson?.let { json ->
                     OriginMountRuntime(
-                        bootId = json.optString("boot_id"),
-                        provider = json.optString("provider"),
-                        configured = json.optString("configured"),
-                        result = json.optString("result"),
+                        bootId = json.optText("boot_id"),
+                        provider = json.optText("provider"),
+                        configured = json.optText("configured"),
+                        result = json.optText("result"),
                         targetCount = if (json.has("target_count") && !json.isNull("target_count")) {
                             json.optInt("target_count")
                         } else {
                             null
                         },
-                        error = json.optString("error"),
-                        warning = json.optString("warning"),
-                        warningCode = json.optString("warning_code"),
+                        error = json.optText("error"),
+                        warning = json.optText("warning"),
+                        warningCode = json.optText("warning_code"),
                     )
                 },
                 nomount = nomountJson?.let { json ->
                     OriginMountNoMountStatus(
-                        driverState = json.optString("driver_state", "absent"),
-                        driverVersion = json.optString("driver_version"),
+                        driverState = json.optText("driver_state", "absent"),
+                        driverVersion = json.optText("driver_version"),
                         rulesExpected = json.optInt("rules_expected"),
                         rulesApplied = json.optInt("rules_applied"),
                         uidCount = json.optInt("uid_count"),
                         isolatedBlocked = json.optBoolean("isolated_blocked", false),
-                        deferredTo = json.optString("deferred_to"),
+                        deferredTo = json.optText("deferred_to"),
                         ownsInjection = json.optBoolean("owns_injection", false),
-                        unavailableCode = json.optString("unavailable_code"),
-                        unavailableDetail = json.optString("unavailable_detail"),
-                        error = json.optString("error"),
+                        unavailableCode = json.optText("unavailable_code"),
+                        unavailableDetail = json.optText("unavailable_detail"),
+                        error = json.optText("error"),
                     )
                 },
             )
